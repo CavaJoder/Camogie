@@ -1,0 +1,63 @@
+/* PDF Mode Styles */
+
+/* Container overrides */
+.pdf-mode {
+    background-color: #ffffff !important;
+    color: #000000 !important;
+    padding: 40px !important;
+    font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+}
+
+/* Summary Card Styling in PDF */
+.pdf-mode .summary-card {
+    background-color: #ffffff !important;
+    border: 1px solid #e0e0e0 !important;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    border-radius: 8px;
+    margin-bottom: 20px;
+    padding: 16px;
+    color: #000000;
+    /* Default text color */
+}
+
+/* Headers */
+.pdf-mode h1,
+.pdf-mode h2,
+.pdf-mode h3 {
+    color: #000000 !important;
+}
+
+/* Page Break - Applied directly to the header */
+.pdf-mode .detailed-stats-header {
+    page-break-before: always !important;
+    margin-top: 0 !important;
+    padding-top: 0 !important;
+    border-top: none !important;
+}
+
+/* Specific overrides for the Summary Card rows */
+.pdf-mode .stat-label {
+    color: #000000 !important;
+    font-weight: 500;
+}
+
+/* Force Detailed Stats Values to Black */
+.pdf-mode .stat-value {
+    color: #000000 !important;
+}
+
+/* Detailed Stats Table Headers */
+.pdf-mode .detailed-header {
+    color: #03dac6 !important;
+    /* Keep Turquoise */
+    border-bottom: 2px solid #eee !important;
+}
+
+.pdf-mode .detailed-row {
+    border-bottom: 1px solid #eee !important;
+}
+
+/* Hide buttons in PDF (just in case) */
+.pdf-mode button {
+    display: none !important;
+}

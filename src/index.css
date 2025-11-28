@@ -1,0 +1,165 @@
+:root {
+  /* Color Palette */
+  --color-primary: #bb86fc;
+  --color-primary-variant: #3700b3;
+  --color-secondary: #03dac6;
+  --color-background: #121212;
+  --color-surface: #1e1e1e;
+  --color-error: #cf6679;
+  --color-success: #4caf50;
+  --color-warning: #ff9800;
+
+  /* Text Colors */
+  --color-on-primary: #000000;
+  --color-on-secondary: #000000;
+  --color-on-background: #ffffff;
+  --color-on-surface: #ffffff;
+  --color-text-secondary: #b0b0b0;
+
+  /* Spacing */
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 16px;
+  --spacing-lg: 24px;
+  --spacing-xl: 32px;
+
+  /* Border Radius */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 16px;
+  --radius-pill: 9999px;
+
+  /* Typography */
+  --font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --font-size-sm: 0.875rem;
+  --font-size-md: 1rem;
+  --font-size-lg: 1.25rem;
+  --font-size-xl: 1.5rem;
+  --font-size-xxl: 2rem;
+  --font-size-timer: 3.5rem;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--font-family);
+  background-color: var(--color-background);
+  color: var(--color-on-background);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+  min-height: 100vh;
+}
+
+#root {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+button {
+  cursor: pointer;
+  border: none;
+  outline: none;
+  font-family: inherit;
+}
+
+/* Utility Classes */
+.text-primary {
+  color: var(--color-primary);
+}
+
+.text-secondary {
+  color: var(--color-secondary);
+}
+
+.text-success {
+  color: var(--color-success);
+}
+
+.text-error {
+  color: var(--color-error);
+}
+
+.text-warning {
+  color: var(--color-warning);
+}
+
+.text-muted {
+  color: var(--color-text-secondary);
+}
+
+.bg-surface {
+  background-color: var(--color-surface);
+}
+
+.bg-primary {
+  background-color: var(--color-primary);
+}
+
+.flex-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.w-full {
+  width: 100%;
+}
+
+.h-full {
+  height: 100%;
+}
+
+/* Scrollbar styling for webkit */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-background);
+}
+
+::-webkit-scrollbar-thumb {
+  background: #333;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
+
+/* PDF Mode Overrides */
+/* PDF Mode Overrides */
+.pdf-mode {
+  background-color: white !important;
+  color: black !important;
+  padding: 20px;
+}
+
+/* Ensure text is visible on white background but keep colors if needed */
+.pdf-mode * {
+  /* color: black !important;  <-- Removed to allow red/green/cyan */
+}
+
+.pdf-mode .bg-surface,
+.pdf-mode .summary-card {
+  background-color: white !important;
+  border: 1px solid #ccc !important;
+  color: black;
+  /* Default text color in cards */
+}
+
+/* Ensure headers in PDF are black */
+.pdf-mode h1,
+.pdf-mode h2,
+.pdf-mode h3 {
+  color: black !important;
+}
+
+/* Allow specific text colors to shine through, but maybe darken them for print? */
+/* Actually, the user wants the colors. */
