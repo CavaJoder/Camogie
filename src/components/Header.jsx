@@ -17,6 +17,16 @@ const Header = () => {
         return false;
     }, [timer.minutes, timer.seconds]);
 
+    const formatDate = (dateStr) => {
+        if (!dateStr) return '';
+        const date = new Date(dateStr);
+        const day = date.getDate();
+        const ordinal = (day > 3 && day < 21) ? 'th' : ['th', 'st', 'nd', 'rd'][day % 10] || 'th';
+        const month = date.toLocaleString('en-GB', { month: 'short' });
+        const year = date.getFullYear();
+        return `${day}${ordinal} ${month} ${year}`;
+    };
+
     return (
         <header style={{
             position: 'fixed',
@@ -59,7 +69,7 @@ const Header = () => {
                 </div>
                 {(matchInfo.date || matchInfo.competition || matchInfo.venue) && (
                     <div style={{ color: '#b0b0b0', fontSize: '0.85rem' }}>
-                        {[matchInfo.date, matchInfo.competition, matchInfo.venue].filter(Boolean).join(' • ')}
+                        {[formatDate(matchInfo.date), matchInfo.competition, matchInfo.venue].filter(Boolean).join(' • ')}
                     </div>
                 )}
             </div>

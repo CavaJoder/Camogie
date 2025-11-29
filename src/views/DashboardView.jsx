@@ -23,6 +23,16 @@ const DashboardView = () => {
         return '#b0b0b0'; // Future (Grey)
     };
 
+    const formatDate = (dateStr) => {
+        if (!dateStr) return '';
+        const date = new Date(dateStr);
+        const day = date.getDate();
+        const ordinal = (day > 3 && day < 21) ? 'th' : ['th', 'st', 'nd', 'rd'][day % 10] || 'th';
+        const month = date.toLocaleString('en-GB', { month: 'short' });
+        const year = date.getFullYear();
+        return `${day}${ordinal} ${month} ${year}`;
+    };
+
     const generatePDF = () => {
         const element = document.getElementById('printableStats');
 
@@ -33,7 +43,7 @@ const DashboardView = () => {
         ${matchInfo.homeCrest ? `<img src="${matchInfo.homeCrest}" style="width: 80px; height: 80px; object-fit: contain;" />` : '<div></div>'}
         <div style="text-align: center;">
           <h1 style="font-size: 24px; font-weight: bold; margin: 0;">${matchInfo.homeTeam || 'HOME'} vs ${matchInfo.awayTeam || 'AWAY'}</h1>
-          <p style="color: #666; margin: 5px 0;">${[matchInfo.date, matchInfo.competition, matchInfo.venue].filter(Boolean).join(' • ')}</p>
+          <p style="color: #666; margin: 5px 0;">${[formatDate(matchInfo.date), matchInfo.competition, matchInfo.venue].filter(Boolean).join(' • ')}</p>
         </div>
         ${matchInfo.awayCrest ? `<img src="${matchInfo.awayCrest}" style="width: 80px; height: 80px; object-fit: contain;" />` : '<div></div>'}
       </div>
@@ -72,8 +82,8 @@ const DashboardView = () => {
                 total += rucks;
             } else if (type === 'possession') {
                 const oppPoss = stats[q]?.oppPossessions || 0;
-                const success = (stats[q]?.turnovers || 0) + (stats[q]?.freesAgainst || 0);
-                value += success;
+                const pressures = stats[q]?.pressures || 0;
+                value += pressures;
                 total += oppPoss;
             } else if (type === 'attack') {
                 const shots = stats[q]?.shotTaken || 0;
@@ -85,10 +95,27 @@ const DashboardView = () => {
                 const won = (stats[q]?.oppPuckoutWon || 0) + (stats[q]?.ownPuckoutWon || 0);
                 value += won;
                 total += tot;
+            } else if (type === 'conversion') {
+                const entries = stats[q]?.ballInside65 || 0;
+                const shots = stats[q]?.shotTaken || 0;
+                value += shots;
+                total += entries;
+            } else if (type === 'scoring') {
+                const shots = stats[q]?.shotTaken || 0;
+                const scores = stats[q]?.score || 0;
+                value += scores;
+                total += shots;
             }
         });
 
         return { value, total, pct: total ? Math.round((value / total) * 100) : 0 };
+    };
+
+    const getPctColor = (val) => {
+        if (val === null) return 'inherit';
+        if (val <= 45) return '#cf6679'; // Red
+        if (val < 60) return '#ff9800'; // Amber
+        return '#4caf50'; // Green
     };
 
     const SummaryCard = ({ title, type }) => {
@@ -114,15 +141,17 @@ const DashboardView = () => {
                 {rows.map((row, idx) => {
                     const { value, total, pct } = getStats(row.quarters, type);
 
-                    // Determine color style
-                    // Default is 'inherit' which will be white in app (via body) and black in PDF (via .pdf-mode)
-                    // Halves are Red (#cf6679)
-                    // Totals are Turquoise (#03dac6)
+                    let rowColorStyle = { color: 'inherit' };
+                    let rowClass = '';
 
-                    let colorStyle = {};
-                    if (row.isHalf) colorStyle = { color: '#cf6679' };
-                    else if (row.isTotal) colorStyle = { color: '#03dac6' };
-                    else colorStyle = { color: 'inherit' }; // Q1-Q4 will inherit
+                    if (row.isHalf) {
+                        rowClass = 'half-row';
+                    } else if (row.isTotal) {
+                        rowColorStyle = { color: '#03dac6' };
+                    }
+
+                    const pctColor = total > 0 ? getPctColor(pct) : 'inherit';
+                    const isHigh = total > 0 && pct >= 60;
 
                     const showSeparatorBefore = row.isHalf && row.label === '1st Half';
                     const showSeparatorBeforeTotal = row.isTotal;
@@ -131,18 +160,18 @@ const DashboardView = () => {
                         <React.Fragment key={idx}>
                             {showSeparatorBefore && <div style={{ borderTop: '1px dashed #333', margin: '8px 0' }} />}
                             {showSeparatorBeforeTotal && <div style={{ borderTop: '1px solid #333', margin: '8px 0' }} />}
-                            <div style={{
+                            <div className={rowClass} style={{
                                 display: 'flex',
                                 justifyContent: 'space-between',
                                 fontSize: '0.9rem',
                                 marginBottom: '4px',
-                                ...colorStyle, // Apply dynamic color
-                                fontWeight: row.isTotal ? 'bold' : 'normal'
+                                ...rowColorStyle,
+                                fontWeight: 'normal'
                             }}>
                                 <span>{row.label}</span>
                                 <div style={{ display: 'flex', gap: '16px' }}>
-                                    <span style={{ fontWeight: 'bold', width: '40px', textAlign: 'right' }}>{pct}%</span>
-                                    <span style={{ width: '50px', textAlign: 'right', opacity: 0.8 }}>({value}/{total})</span>
+                                    <span className={isHigh ? 'pct-high' : ''} style={{ fontWeight: 'normal', width: '40px', textAlign: 'right', color: pctColor }}>{pct}%</span>
+                                    <span style={{ width: '50px', textAlign: 'right', opacity: 0.8, color: row.isHalf ? '#fff' : 'inherit' }}>({value}/{total})</span>
                                 </div>
                             </div>
                         </React.Fragment>
@@ -177,17 +206,60 @@ const DashboardView = () => {
         );
     };
 
+    const CalculatedRow = ({ label, numeratorId, denominatorId }) => {
+        const getPctValue = (q) => {
+            const num = stats[q]?.[numeratorId] || 0;
+            const den = stats[q]?.[denominatorId] || 0;
+            return den > 0 ? Math.round((num / den) * 100) : null;
+        };
+
+        const q1Val = getPctValue('q1');
+        const q2Val = getPctValue('q2');
+        const q3Val = getPctValue('q3');
+        const q4Val = getPctValue('q4');
+
+        const totalNum = (stats.q1?.[numeratorId] || 0) + (stats.q2?.[numeratorId] || 0) + (stats.q3?.[numeratorId] || 0) + (stats.q4?.[numeratorId] || 0);
+        const totalDen = (stats.q1?.[denominatorId] || 0) + (stats.q2?.[denominatorId] || 0) + (stats.q3?.[denominatorId] || 0) + (stats.q4?.[denominatorId] || 0);
+        const totalVal = totalDen > 0 ? Math.round((totalNum / totalDen) * 100) : null;
+
+        return (
+            <div style={{
+                display: 'grid',
+                gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr 1fr',
+                padding: '12px 0',
+                borderBottom: '1px solid #333',
+                fontSize: '0.9rem',
+                backgroundColor: 'rgba(255,255,255,0.02)'
+            }}>
+                <span className="stat-label" style={{ color: '#b0b0b0', paddingLeft: '16px', fontStyle: 'italic' }}>{label}</span>
+                <span className="stat-value" style={{ textAlign: 'center', color: getPctColor(q1Val) }}>{q1Val !== null ? q1Val + '%' : '-'}</span>
+                <span className="stat-value" style={{ textAlign: 'center', color: getPctColor(q2Val) }}>{q2Val !== null ? q2Val + '%' : '-'}</span>
+                <span className="stat-value" style={{ textAlign: 'center', color: getPctColor(q3Val) }}>{q3Val !== null ? q3Val + '%' : '-'}</span>
+                <span className="stat-value" style={{ textAlign: 'center', color: getPctColor(q4Val) }}>{q4Val !== null ? q4Val + '%' : '-'}</span>
+                <span className="stat-value" style={{ textAlign: 'center', fontWeight: 'bold', color: getPctColor(totalVal) }}>{totalVal !== null ? totalVal + '%' : '-'}</span>
+            </div>
+        );
+    };
+
     return (
         <div style={{ padding: '16px', paddingBottom: '80px' }}>
             <div id="printableStats">
+                <style>{`
+                .half-row { color: #90caf9 !important; }
+                
+                .pdf-mode .summary-card .pct-high { color: #000000 !important; }
+                .pdf-mode .half-row { color: #000000 !important; }
+            `}</style>
                 {/* Summary Section */}
                 <h2 style={{ fontSize: '1.2rem', marginBottom: '16px', color: '#bb86fc' }}>Match Summary</h2>
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
                     <SummaryCard title="Rucks (Win %)" type="rucks" />
                     <SummaryCard title="Possession (Pressure %)" type="possession" />
-                    <SummaryCard title="Attack (Efficiency)" type="attack" />
+                    <SummaryCard title="Scoring Efficiency (Shots to Scores)" type="attack" />
                     <SummaryCard title="Puckouts (Win %)" type="puckouts" />
+                    <SummaryCard title="Shot Attempts (Entries to Shots)" type="conversion" />
+                    <SummaryCard title="Scoring (Shots to Scores)" type="scoring" />
                 </div>
 
                 {/* Page Break applied via CSS to the header below */}
@@ -213,10 +285,15 @@ const DashboardView = () => {
                     <h3 style={{ borderBottom: '1px solid #333', paddingBottom: '8px', marginBottom: '8px', color: '#03dac6' }}>RUCKS</h3>
                     <StatRow label="Defensive Rucks" statId="defRuck" />
                     <StatRow label="Defensive Rucks Won" statId="defRuckWon" />
+                    <CalculatedRow label="Defensive Won %" numeratorId="defRuckWon" denominatorId="defRuck" />
+                    <div style={{ borderTop: '1px dashed #333', margin: '8px 0' }}></div>
                     <StatRow label="Middle Third Rucks" statId="midRuck" />
                     <StatRow label="Middle Third Rucks Won" statId="midRuckWon" />
+                    <CalculatedRow label="Middle Won %" numeratorId="midRuckWon" denominatorId="midRuck" />
+                    <div style={{ borderTop: '1px dashed #333', margin: '8px 0' }}></div>
                     <StatRow label="Offensive Rucks" statId="offRuck" />
                     <StatRow label="Offensive Rucks Won" statId="offRuckWon" />
+                    <CalculatedRow label="Offensive Won %" numeratorId="offRuckWon" denominatorId="offRuck" />
                 </div>
 
                 <div style={{ marginBottom: '24px' }}>
@@ -228,10 +305,15 @@ const DashboardView = () => {
                 </div>
 
                 <div style={{ marginBottom: '24px' }}>
-                    <h3 style={{ borderBottom: '1px solid #333', paddingBottom: '8px', marginBottom: '8px' }}>ATTACK</h3>
+                    <h3 style={{ borderBottom: '1px solid #333', paddingBottom: '8px', marginBottom: '8px', color: '#03dac6' }}>ATTACK</h3>
+                    <StatRow label="Inside 65" statId="ballInside65" />
                     <StatRow label="Shots" statId="shotTaken" />
                     <StatRow label="Scores" statId="score" />
-                    <StatRow label="Inside 65" statId="ballInside65" />
+                    <StatRow label="Wides" statId="wide" />
+                    <StatRow label="Short" statId="short" />
+                    <StatRow label="Saved" statId="saved" />
+                    <StatRow label="Frees Won" statId="freeWon" />
+                    <StatRow label="45s Won" statId="45Won" />
                 </div>
             </div>
 

@@ -57,7 +57,7 @@ const RecordView = () => {
     ];
 
     return (
-        <div style={{ padding: '16px', paddingBottom: '80px' }}>
+        <div style={{ padding: '16px', paddingTop: '32px', paddingBottom: '80px' }}>
             {categories.map((cat, index) => (
                 <div key={index} style={{ marginBottom: '24px' }}>
                     <h3 style={{
