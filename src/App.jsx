@@ -8,6 +8,8 @@ import RecordView from './views/RecordView';
 import DashboardView from './views/DashboardView';
 import PlayerStatsView from './views/PlayerStatsView';
 import SettingsView from './views/SettingsView';
+import PuckoutsView from './views/PuckoutsView';
+import ScoresView from './views/ScoresView';
 
 function App() {
   const [activeTab, setActiveTab] = useState('record');
@@ -18,6 +20,8 @@ function App() {
       case 'dashboard': return <DashboardView />;
       case 'player': return <PlayerStatsView />;
       case 'settings': return <SettingsView />;
+      case 'puckouts': return <PuckoutsView />;
+      case 'scores': return <ScoresView />;
       default: return <RecordView />;
     }
   };

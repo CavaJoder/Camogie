@@ -22,6 +22,17 @@ const RecordView = () => {
             ]
         },
         {
+            title: 'Rucks',
+            items: [
+                { id: 'defRuck', label: 'Defensive Ruck', color: '#bb86fc' },
+                { id: 'defRuckWon', label: 'Def Ruck Won', color: '#4caf50' },
+                { id: 'midRuck', label: 'Middle Third Ruck', color: '#bb86fc' },
+                { id: 'midRuckWon', label: 'Mid Ruck Won', color: '#4caf50' },
+                { id: 'offRuck', label: 'Offensive Ruck', color: '#bb86fc' },
+                { id: 'offRuckWon', label: 'Off Ruck Won', color: '#4caf50' },
+            ]
+        },
+        {
             title: 'Shots & Scores',
             items: [
                 { id: 'ballInside65', label: 'Ball Inside 65', color: '#bb86fc' },
@@ -32,17 +43,6 @@ const RecordView = () => {
                 { id: 'saved', label: 'Saved', color: '#ff9800' },
                 { id: 'freeWon', label: 'Free Won', color: '#4caf50' },
                 { id: '45Won', label: '45 Won', color: '#4caf50' },
-            ]
-        },
-        {
-            title: 'Rucks',
-            items: [
-                { id: 'defRuck', label: 'Defensive Ruck', color: '#bb86fc' },
-                { id: 'defRuckWon', label: 'Def Ruck Won', color: '#4caf50' },
-                { id: 'midRuck', label: 'Middle Third Ruck', color: '#bb86fc' },
-                { id: 'midRuckWon', label: 'Mid Ruck Won', color: '#4caf50' },
-                { id: 'offRuck', label: 'Offensive Ruck', color: '#bb86fc' },
-                { id: 'offRuckWon', label: 'Off Ruck Won', color: '#4caf50' },
             ]
         },
         {

@@ -1,9 +1,11 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useMatch } from '../context/MatchContext';
 import html2pdf from 'html2pdf.js';
+import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
 
 const DashboardView = () => {
     const { stats, timer, matchInfo } = useMatch();
+    const [isPdfMode, setIsPdfMode] = useState(false);
 
     // Helper to sum stats across specific quarters
     const sumStats = (statId, quarters = ['q1', 'q2', 'q3', 'q4']) => {
@@ -33,41 +35,94 @@ const DashboardView = () => {
         return `${day}${ordinal} ${month} ${year}`;
     };
 
-    const generatePDF = () => {
-        const element = document.getElementById('printableStats');
+    // --- Chart Data Preparation ---
 
-        // Inject Header for PDF
-        const headerDiv = document.createElement('div');
-        headerDiv.innerHTML = `
-      <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #333; padding-bottom: 20px; margin-bottom: 20px;">
-        ${matchInfo.homeCrest ? `<img src="${matchInfo.homeCrest}" style="width: 80px; height: 80px; object-fit: contain;" />` : '<div></div>'}
-        <div style="text-align: center;">
-          <h1 style="font-size: 24px; font-weight: bold; margin: 0;">${matchInfo.homeTeam || 'HOME'} vs ${matchInfo.awayTeam || 'AWAY'}</h1>
-          <p style="color: #666; margin: 5px 0;">${[formatDate(matchInfo.date), matchInfo.competition, matchInfo.venue].filter(Boolean).join(' • ')}</p>
-        </div>
-        ${matchInfo.awayCrest ? `<img src="${matchInfo.awayCrest}" style="width: 80px; height: 80px; object-fit: contain;" />` : '<div></div>'}
-      </div>
-    `;
+    // Shot Analysis Data
+    const shotData = [
+        { name: 'Scores', value: sumStats('score'), color: '#4caf50' },
+        { name: 'Wides', value: sumStats('wide'), color: '#cf6679' },
+        { name: 'Short', value: sumStats('short'), color: '#ff9800' },
+        { name: 'Saved', value: sumStats('saved'), color: '#ff9800' },
+    ].filter(d => d.value > 0);
 
-        const clone = element.cloneNode(true);
-        clone.insertBefore(headerDiv, clone.firstChild);
-        clone.classList.add('pdf-mode');
+    // Pressure Bar Chart Data (Quarterly)
+    const pressureBarData = ['q1', 'q2', 'q3', 'q4'].map(q => ({
+        name: q.toUpperCase(),
+        Possessions: stats[q]?.oppPossessions || 0,
+        Pressures: stats[q]?.pressures || 0
+    }));
 
-        const container = document.createElement('div');
-        container.appendChild(clone);
-        document.body.appendChild(container);
-
-        const opt = {
-            margin: 10,
-            filename: `Match_Analysis_${matchInfo.homeTeam}_vs_${matchInfo.awayTeam}_${matchInfo.date}.pdf`,
-            image: { type: 'jpeg', quality: 0.98 },
-            html2canvas: { scale: 2, useCORS: true },
-            jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    // Ruck Bar Chart Data (Quarterly)
+    const ruckBarData = ['q1', 'q2', 'q3', 'q4'].map(q => {
+        const total = (stats[q]?.defRuck || 0) + (stats[q]?.midRuck || 0) + (stats[q]?.offRuck || 0);
+        const won = (stats[q]?.defRuckWon || 0) + (stats[q]?.midRuckWon || 0) + (stats[q]?.offRuckWon || 0);
+        return {
+            name: q.toUpperCase(),
+            Total: total,
+            Won: won
         };
+    });
 
-        html2pdf().set(opt).from(clone).save().then(() => {
-            document.body.removeChild(container);
-        });
+    // Zone Ruck Data (New Chart)
+    const zoneRuckData = ['q1', 'q2', 'q3', 'q4'].map(q => ({
+        name: q.toUpperCase(),
+        defWon: stats[q]?.defRuckWon || 0,
+        defLost: (stats[q]?.defRuck || 0) - (stats[q]?.defRuckWon || 0),
+        midWon: stats[q]?.midRuckWon || 0,
+        midLost: (stats[q]?.midRuck || 0) - (stats[q]?.midRuckWon || 0),
+        offWon: stats[q]?.offRuckWon || 0,
+        offLost: (stats[q]?.offRuck || 0) - (stats[q]?.offRuckWon || 0),
+    }));
+
+    // Puckout Data
+    const ownPuckoutData = [
+        { name: 'Won', value: sumStats('ownPuckoutWon'), color: '#4caf50' },
+        { name: 'Lost', value: Math.max(0, sumStats('ownPuckout') - sumStats('ownPuckoutWon')), color: '#cf6679' },
+    ].filter(d => d.value > 0);
+
+    const oppPuckoutData = [
+        { name: 'Won', value: sumStats('oppPuckoutWon'), color: '#03dac6' },
+        { name: 'Lost', value: Math.max(0, sumStats('oppPuckout') - sumStats('oppPuckoutWon')), color: '#bb86fc' },
+    ].filter(d => d.value > 0);
+
+    const renderCustomLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent, index, name, value }) => {
+        const RADIAN = Math.PI / 180;
+        const radius = outerRadius + 25;
+        const x = cx + radius * Math.cos(-midAngle * RADIAN);
+        const y = cy + radius * Math.sin(-midAngle * RADIAN);
+
+        return (
+            <text
+                x={x}
+                y={y}
+                fill={isPdfMode ? "#333" : "#fff"}
+                textAnchor={x > cx ? 'start' : 'end'}
+                dominantBaseline="central"
+                fontSize="12px"
+                fontWeight="bold"
+            >
+                {`${name}: ${value}`}
+            </text>
+        );
+    };
+
+    const generatePDF = () => {
+        setIsPdfMode(true);
+
+        setTimeout(() => {
+            const element = document.getElementById('printableStats');
+            const opt = {
+                margin: 10,
+                filename: `Match_Analysis_${matchInfo.homeTeam}_vs_${matchInfo.awayTeam}_${matchInfo.date}.pdf`,
+                image: { type: 'jpeg', quality: 0.98 },
+                html2canvas: { scale: 2, useCORS: true },
+                jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+            };
+
+            html2pdf().set(opt).from(element).save().then(() => {
+                setIsPdfMode(false);
+            });
+        }, 500);
     };
 
     const getStats = (quarters, type) => {
@@ -100,6 +155,11 @@ const DashboardView = () => {
                 const shots = stats[q]?.shotTaken || 0;
                 value += shots;
                 total += entries;
+            } else if (type === 'efficiency') {
+                const shots = stats[q]?.shotTaken || 0;
+                const score = stats[q]?.score || 0;
+                value += score;
+                total += shots;
             } else if (type === 'scoring') {
                 const shots = stats[q]?.shotTaken || 0;
                 const scores = stats[q]?.score || 0;
@@ -109,6 +169,11 @@ const DashboardView = () => {
         });
 
         return { value, total, pct: total ? Math.round((value / total) * 100) : 0 };
+    };
+
+    const getPctValue = (quarters, type) => {
+        const { pct } = getStats(quarters, type);
+        return pct;
     };
 
     const getPctColor = (val) => {
@@ -134,8 +199,8 @@ const DashboardView = () => {
                 backgroundColor: '#1e1e1e',
                 borderRadius: '8px',
                 padding: '16px',
-                marginBottom: '16px',
-                border: '1px solid #333'
+                border: '1px solid #333',
+                height: '100%'
             }}>
                 <h3 style={{ color: '#03dac6', fontSize: '1rem', marginBottom: '12px' }}>{title}</h3>
                 {rows.map((row, idx) => {
@@ -189,7 +254,7 @@ const DashboardView = () => {
         const total = q1 + q2 + q3 + q4;
 
         return (
-            <div style={{
+            <div className="stat-row" style={{
                 display: 'grid',
                 gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr 1fr',
                 padding: '12px 0',
@@ -223,7 +288,7 @@ const DashboardView = () => {
         const totalVal = totalDen > 0 ? Math.round((totalNum / totalDen) * 100) : null;
 
         return (
-            <div style={{
+            <div className="stat-row" style={{
                 display: 'grid',
                 gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr 1fr',
                 padding: '12px 0',
@@ -241,28 +306,76 @@ const DashboardView = () => {
         );
     };
 
-    return (
-        <div style={{ padding: '16px', paddingBottom: '80px' }}>
-            <div id="printableStats">
-                <style>{`
-                .half-row { color: #90caf9 !important; }
-                
-                .pdf-mode .summary-card .pct-high { color: #000000 !important; }
-                .pdf-mode .half-row { color: #000000 !important; }
-            `}</style>
-                {/* Summary Section */}
-                <h2 style={{ fontSize: '1.2rem', marginBottom: '16px', color: '#bb86fc' }}>Match Summary</h2>
+    const KPICard = ({ title, value, sub, color = '#fff', bgColor = '#1e1e1e', titleColor = '#b0b0b0' }) => (
+        <div className="kpi-card" style={{
+            backgroundColor: bgColor,
+            padding: '12px',
+            borderRadius: '8px',
+            textAlign: 'center',
+            minWidth: '100px',
+            flex: 1,
+            border: '1px solid #333'
+        }}>
+            <div className="kpi-title" style={{ fontSize: '0.8rem', color: titleColor, marginBottom: '4px' }}>{title}</div>
+            <div className="kpi-value" style={{ fontSize: '1.2rem', fontWeight: 'bold', color: color }}>{value}</div>
+            {sub && <div style={{ fontSize: '0.75rem', color: '#666' }}>{sub}</div>}
+        </div>
+    );
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                    <SummaryCard title="Rucks (Win %)" type="rucks" />
-                    <SummaryCard title="Possession (Pressure %)" type="possession" />
-                    <SummaryCard title="Scoring Efficiency (Shots to Scores)" type="attack" />
-                    <SummaryCard title="Puckouts (Win %)" type="puckouts" />
+    // --- New Stats Calculations for Visual Analysis ---
+
+    // Shooting Analysis
+    const totalAttacks = sumStats('ballInside65');
+    const totalShots = sumStats('shotTaken');
+    const totalScores = sumStats('score');
+    const territorialEffectiveness = totalAttacks > 0 ? Math.round((totalShots / totalAttacks) * 100) : 0;
+    const shotEfficiency = totalShots > 0 ? Math.round((totalScores / totalShots) * 100) : 0;
+
+    // Pressure Analysis
+    const totalPossessions = sumStats('oppPossessions');
+    const totalPressures = sumStats('pressures');
+    const totalFreesAgainst = sumStats('freesAgainst');
+    const totalTurnovers = sumStats('turnovers');
+    const pressureEfficiency = totalPossessions > 0 ? Math.round((totalPressures / totalPossessions) * 100) : 0;
+    const freeRate = totalPressures > 0 ? Math.round((totalFreesAgainst / totalPressures) * 100) : 0;
+    const successRate = totalPressures > 0 ? Math.round((totalTurnovers / totalPressures) * 100) : 0;
+
+    // Ruck Analysis
+    const totalRucks = sumStats('defRuck') + sumStats('midRuck') + sumStats('offRuck');
+    const rucksWon = sumStats('defRuckWon') + sumStats('midRuckWon') + sumStats('offRuckWon');
+    const ruckEfficiency = totalRucks > 0 ? Math.round((rucksWon / totalRucks) * 100) : 0;
+
+    return (
+        <div style={{ padding: '20px', paddingBottom: '80px' }}>
+            <div id="printableStats" className={isPdfMode ? 'pdf-mode' : ''}>
+
+                {/* PDF Header - Only visible in PDF Mode */}
+                {isPdfMode && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '2px solid #333', paddingBottom: '20px', marginBottom: '20px' }}>
+                        {matchInfo.homeCrest ? <img src={matchInfo.homeCrest} style={{ width: '80px', height: '80px', objectFit: 'contain' }} alt="Home Crest" /> : <div></div>}
+                        <div style={{ textAlign: 'center' }}>
+                            <h1 style={{ fontSize: '24px', fontWeight: 'bold', margin: '0', color: '#000' }}>{matchInfo.homeTeam || 'HOME'} vs {matchInfo.awayTeam || 'AWAY'}</h1>
+                            <p style={{ color: '#666', margin: '5px 0' }}>{[formatDate(matchInfo.date), matchInfo.competition, matchInfo.venue].filter(Boolean).join(' • ')}</p>
+                        </div>
+                        {matchInfo.awayCrest ? <img src={matchInfo.awayCrest} style={{ width: '80px', height: '80px', objectFit: 'contain' }} alt="Away Crest" /> : <div></div>}
+                    </div>
+                )}
+
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                    <h2 style={{ fontSize: '1.2rem', fontWeight: 'bold', color: isPdfMode ? '#000' : '#fff' }}>Match Dashboard</h2>
+                </div>
+
+                {/* Summary Cards */}
+                <div className="summary-cards-container">
+                    <SummaryCard title="Pressures (Won/Total)" type="possession" />
+                    <SummaryCard title="Rucks (Won/Total)" type="rucks" />
+                    <SummaryCard title="Puckouts (Won/Total)" type="puckouts" />
                     <SummaryCard title="Shot Attempts (Entries to Shots)" type="conversion" />
+                    <SummaryCard title="Scoring Efficiency (Shots to Scores)" type="attack" />
                     <SummaryCard title="Scoring (Shots to Scores)" type="scoring" />
                 </div>
 
-                {/* Page Break applied via CSS to the header below */}
+                {/* Detailed Statistics */}
                 <h2 className="detailed-stats-header" style={{ fontSize: '1.2rem', margin: '24px 0 16px', color: '#bb86fc' }}>Detailed Statistics</h2>
 
                 <div style={{ marginBottom: '24px' }}>
@@ -315,6 +428,239 @@ const DashboardView = () => {
                     <StatRow label="Frees Won" statId="freeWon" />
                     <StatRow label="45s Won" statId="45Won" />
                 </div>
+
+                {/* Visual Analysis Section - PDF Only */}
+                {isPdfMode && (
+                    <div style={{ marginTop: '40px', pageBreakBefore: 'always' }}>
+                        <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#000', marginBottom: '20px', textAlign: 'center' }}>Visual Match Report</h2>
+
+                        {/* Shot Analysis */}
+                        <div className="chart-container" style={{
+                            marginBottom: '24px',
+                            backgroundColor: '#f5f5f5',
+                            padding: '16px',
+                            borderRadius: '8px',
+                            color: '#333',
+                            pageBreakInside: 'avoid'
+                        }}>
+                            <h3 style={{ fontSize: '1rem', marginBottom: '10px', textAlign: 'center' }}>Shot Analysis</h3>
+                            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '10px' }}>
+                                <PieChart width={400} height={300}>
+                                    <Pie
+                                        data={shotData}
+                                        cx="50%"
+                                        cy="50%"
+                                        innerRadius={60}
+                                        outerRadius={80}
+                                        paddingAngle={5}
+                                        dataKey="value"
+                                        isAnimationActive={false}
+                                        label={renderCustomLabel}
+                                        labelLine={true}
+                                    >
+                                        {shotData.map((entry, index) => (
+                                            <Cell key={`cell-${index}`} fill={entry.color} />
+                                        ))}
+                                    </Pie>
+                                    <Legend layout="horizontal" verticalAlign="bottom" iconSize={10} wrapperStyle={{ fontSize: '12px', color: '#333' }} />
+                                </PieChart>
+                            </div>
+                            <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
+                                <KPICard title="Total Shots" value={totalShots} color="#333" bgColor="#fff" titleColor="#666" />
+                                <KPICard title="Scores" value={totalScores} color="#4caf50" bgColor="#fff" titleColor="#666" />
+                                <KPICard title="Efficiency" value={`${shotEfficiency}%`} color="#333" bgColor="#fff" titleColor="#666" />
+                                <KPICard title="Territorial" value={`${territorialEffectiveness}%`} sub="Shots/Entries" color="#333" bgColor="#fff" titleColor="#666" />
+                            </div>
+                        </div>
+
+                        {/* Pressure Analysis */}
+                        <div className="chart-container" style={{
+                            marginTop: '60px',
+                            marginBottom: '24px',
+                            backgroundColor: '#f5f5f5',
+                            padding: '16px',
+                            borderRadius: '8px',
+                            color: '#333',
+                            pageBreakInside: 'avoid',
+                            pageBreakBefore: 'always'
+                        }}>
+                            <h3 style={{ fontSize: '1rem', marginBottom: '10px', textAlign: 'center' }}>Pressure Analysis</h3>
+                            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '10px' }}>
+                                <BarChart width={500} height={300} data={pressureBarData}>
+                                    <CartesianGrid strokeDasharray="3 3" stroke="#ccc" />
+                                    <XAxis dataKey="name" stroke="#333" />
+                                    <YAxis stroke="#333" />
+                                    <Legend wrapperStyle={{ color: '#333' }} />
+                                    <Bar dataKey="Possessions" fill="#bb86fc" isAnimationActive={false} label={{ position: 'top', fill: '#333', fontSize: 12 }} />
+                                    <Bar dataKey="Pressures" fill="#4caf50" isAnimationActive={false} label={{ position: 'top', fill: '#333', fontSize: 12 }} />
+                                </BarChart>
+                            </div>
+                            <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
+                                <KPICard title="Pressures" value={totalPressures} color="#333" bgColor="#fff" titleColor="#666" />
+                                <KPICard title="Turnovers" value={totalTurnovers} color="#4caf50" bgColor="#fff" titleColor="#666" />
+                                <KPICard title="Efficiency" value={`${pressureEfficiency}%`} sub="Press/Poss" color="#333" bgColor="#fff" titleColor="#666" />
+                                <KPICard title="Success Rate" value={`${successRate}%`} sub="Turn/Press" color="#333" bgColor="#fff" titleColor="#666" />
+                            </div>
+                        </div>
+
+                        {/* Ruck Analysis */}
+                        <div className="chart-container" style={{
+                            marginTop: '60px',
+                            marginBottom: '24px',
+                            backgroundColor: '#f5f5f5',
+                            padding: '16px',
+                            borderRadius: '8px',
+                            color: '#333',
+                            pageBreakInside: 'avoid',
+                            pageBreakBefore: 'always'
+                        }}>
+                            <h3 style={{ fontSize: '1rem', marginBottom: '10px', textAlign: 'center' }}>Ruck Analysis</h3>
+                            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '10px' }}>
+                                <BarChart width={500} height={300} data={ruckBarData}>
+                                    <CartesianGrid strokeDasharray="3 3" stroke="#ccc" />
+                                    <XAxis dataKey="name" stroke="#333" />
+                                    <YAxis stroke="#333" />
+                                    <Legend wrapperStyle={{ color: '#333' }} />
+                                    <Bar dataKey="Total" fill="#bb86fc" isAnimationActive={false} label={{ position: 'top', fill: '#333', fontSize: 12 }} />
+                                    <Bar dataKey="Won" fill="#00c853" isAnimationActive={false} label={{ position: 'top', fill: '#333', fontSize: 12 }} />
+                                </BarChart>
+                            </div>
+                            <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
+                                <KPICard title="Total Rucks" value={totalRucks} color="#333" bgColor="#fff" titleColor="#666" />
+                                <KPICard title="Rucks Won" value={rucksWon} color="#00c853" bgColor="#fff" titleColor="#666" />
+                                <KPICard title="Efficiency" value={`${ruckEfficiency}%`} color="#333" bgColor="#fff" titleColor="#666" />
+                            </div>
+                        </div>
+
+                        {/* Zone Ruck Analysis (New) */}
+                        <div className="chart-container" style={{
+                            marginTop: '60px',
+                            marginBottom: '24px',
+                            backgroundColor: '#f5f5f5',
+                            padding: '16px',
+                            borderRadius: '8px',
+                            color: '#333',
+                            pageBreakInside: 'avoid',
+                            pageBreakBefore: 'always'
+                        }}>
+                            <h3 style={{ fontSize: '1rem', marginBottom: '10px', textAlign: 'center' }}>Ruck Analysis by Zone</h3>
+                            <div style={{ display: 'flex', justifyContent: 'center' }}>
+                                <BarChart width={600} height={350} data={zoneRuckData}>
+                                    <CartesianGrid strokeDasharray="3 3" stroke="#ccc" />
+                                    <XAxis dataKey="name" stroke="#333" />
+                                    <YAxis stroke="#333" />
+                                    <Legend wrapperStyle={{ color: '#333' }} />
+                                    <Bar dataKey="defWon" stackId="def" fill="#4caf50" name="Def Won" isAnimationActive={false} />
+                                    <Bar dataKey="defLost" stackId="def" fill="#cf6679" name="Def Lost" isAnimationActive={false} />
+                                    <Bar dataKey="midWon" stackId="mid" fill="#4caf50" name="Mid Won" isAnimationActive={false} />
+                                    <Bar dataKey="midLost" stackId="mid" fill="#cf6679" name="Mid Lost" isAnimationActive={false} />
+                                    <Bar dataKey="offWon" stackId="off" fill="#4caf50" name="Off Won" isAnimationActive={false} />
+                                    <Bar dataKey="offLost" stackId="off" fill="#cf6679" name="Off Lost" isAnimationActive={false} />
+                                </BarChart>
+                            </div>
+                        </div>
+
+                        {/* Puckout Analysis */}
+                        <div className="chart-container" style={{
+                            marginTop: '60px',
+                            marginBottom: '24px',
+                            backgroundColor: '#f5f5f5',
+                            padding: '16px',
+                            borderRadius: '8px',
+                            color: '#333',
+                            pageBreakInside: 'avoid',
+                            pageBreakBefore: 'always'
+                        }}>
+                            <h3 style={{ fontSize: '1rem', marginBottom: '10px', textAlign: 'center' }}>Puckout Analysis</h3>
+                            <div style={{ display: 'flex', justifyContent: 'space-around', flexWrap: 'wrap', marginBottom: '10px' }}>
+                                <div style={{ textAlign: 'center' }}>
+                                    <h4 style={{ color: '#666', marginBottom: '5px' }}>Own Puckouts</h4>
+                                    <PieChart width={250} height={250}>
+                                        <Pie
+                                            data={ownPuckoutData}
+                                            cx="50%"
+                                            cy="50%"
+                                            innerRadius={50}
+                                            outerRadius={70}
+                                            paddingAngle={5}
+                                            dataKey="value"
+                                            isAnimationActive={false}
+                                            label={renderCustomLabel}
+                                            labelLine={true}
+                                        >
+                                            {ownPuckoutData.map((entry, index) => (
+                                                <Cell key={`cell-${index}`} fill={entry.color} />
+                                            ))}
+                                        </Pie>
+                                    </PieChart>
+                                </div>
+                                <div style={{ textAlign: 'center' }}>
+                                    <h4 style={{ color: '#666', marginBottom: '5px' }}>Opposition Puckouts</h4>
+                                    <PieChart width={250} height={250}>
+                                        <Pie
+                                            data={oppPuckoutData}
+                                            cx="50%"
+                                            cy="50%"
+                                            innerRadius={50}
+                                            outerRadius={70}
+                                            paddingAngle={5}
+                                            dataKey="value"
+                                            isAnimationActive={false}
+                                            label={renderCustomLabel}
+                                            labelLine={true}
+                                        >
+                                            {oppPuckoutData.map((entry, index) => (
+                                                <Cell key={`cell-${index}`} fill={entry.color} />
+                                            ))}
+                                        </Pie>
+                                    </PieChart>
+                                </div>
+                            </div>
+                            <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
+                                <KPICard title="Own Won" value={sumStats('ownPuckoutWon')} color="#4caf50" bgColor="#fff" titleColor="#666" />
+                                <KPICard title="Own Lost" value={Math.max(0, sumStats('ownPuckout') - sumStats('ownPuckoutWon'))} color="#cf6679" bgColor="#fff" titleColor="#666" />
+                                <KPICard title="Opp Won" value={sumStats('oppPuckoutWon')} color="#03dac6" bgColor="#fff" titleColor="#666" />
+                                <KPICard title="Opp Lost" value={Math.max(0, sumStats('oppPuckout') - sumStats('oppPuckoutWon'))} color="#bb86fc" bgColor="#fff" titleColor="#666" />
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                <style>{`
+                .summary-cards-container {
+                    display: grid;
+                    grid-template-columns: 1fr;
+                    gap: 20px;
+                    margin-bottom: 30px;
+                }
+                @media (min-width: 768px) {
+                    .summary-cards-container {
+                        grid-template-columns: 1fr 1fr;
+                    }
+                }
+
+                .half-row { color: #90caf9 !important; }
+                
+                .pdf-mode .half-row { color: #000000 !important; }
+                .pdf-mode {
+                    background-color: white !important;
+                    color: black !important;
+                }
+                .pdf-mode .summary-card {
+                    background-color: #f5f5f5 !important;
+                    color: black !important;
+                    border: 1px solid #ccc;
+                    padding: 8px !important; /* Compact padding for PDF */
+                }
+                .pdf-mode .stat-row {
+                    padding: 4px 0 !important; /* Compact padding for PDF */
+                    font-size: 0.8rem !important;
+                }
+                .pdf-mode h2, .pdf-mode h3, .pdf-mode h4 {
+                    color: black !important;
+                }
+                /* Removed .pdf-mode span to allow inline colors */
+            `}</style>
             </div>
 
             <button onClick={generatePDF} style={{
@@ -327,7 +673,7 @@ const DashboardView = () => {
                 fontSize: '1rem',
                 marginTop: '20px'
             }}>
-                Download Match PDF
+                {isPdfMode ? 'Generating PDF...' : 'Download Match PDF'}
             </button>
         </div>
     );

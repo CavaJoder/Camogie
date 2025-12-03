@@ -13,13 +13,14 @@ const InputGroup = ({ label, value, onChange, type = 'text', disabled }) => (
             disabled={disabled}
             style={{
                 width: '100%',
-                padding: '12px',
-                backgroundColor: disabled ? '#121212' : '#1e1e1e',
+                padding: type === 'color' ? '4px' : '12px',
+                height: type === 'color' ? '48px' : 'auto',
+                backgroundColor: type === 'color' ? value : (disabled ? '#121212' : '#1e1e1e'),
                 border: '1px solid #333',
                 borderRadius: '6px',
                 color: disabled ? '#666' : 'white',
                 fontSize: '1rem',
-                cursor: disabled ? 'not-allowed' : 'text'
+                cursor: disabled ? 'not-allowed' : (type === 'color' ? 'pointer' : 'text')
             }}
         />
     </div>
@@ -134,6 +135,23 @@ const SettingsView = () => {
                         />
                     </div>
                 </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '24px' }}>
+                <InputGroup
+                    label="Home Team Color"
+                    type="color"
+                    value={matchInfo.homeTeamColor || '#bb86fc'}
+                    onChange={(v) => updateMatchInfo('homeTeamColor', v)}
+                    disabled={isMatchComplete}
+                />
+                <InputGroup
+                    label="Away Team Color"
+                    type="color"
+                    value={matchInfo.awayTeamColor || '#bb86fc'}
+                    onChange={(v) => updateMatchInfo('awayTeamColor', v)}
+                    disabled={isMatchComplete}
+                />
             </div>
 
             <InputGroup

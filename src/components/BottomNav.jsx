@@ -1,5 +1,5 @@
 import React from 'react';
-import { ClipboardList, LayoutDashboard, User, Settings } from 'lucide-react';
+import { ClipboardList, LayoutDashboard, User, Settings, Target, Trophy } from 'lucide-react';
 
 const BottomNav = ({ activeTab, onTabChange }) => {
     const tabs = [
@@ -7,6 +7,8 @@ const BottomNav = ({ activeTab, onTabChange }) => {
         { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
         { id: 'player', label: 'Player', icon: User },
         { id: 'settings', label: 'Settings', icon: Settings },
+        { id: 'puckouts', label: 'Puckouts', icon: Target },
+        { id: 'scores', label: 'Scores', icon: Trophy },
     ];
 
     return (

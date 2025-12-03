@@ -1,6 +1,6 @@
 import React from 'react';
 import { useMatch } from '../context/MatchContext';
-import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts';
+import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
 import html2pdf from 'html2pdf.js';
 
 const PlayerStatsView = () => {
@@ -20,16 +20,23 @@ const PlayerStatsView = () => {
         { name: 'Saved', value: sumStats('saved'), color: '#ff9800' },
     ].filter(d => d.value > 0);
 
-    const pressureData = [
-        { name: 'Turnovers', value: sumStats('turnovers'), color: '#4caf50' },
-        { name: 'Frees Against', value: sumStats('freesAgainst'), color: '#cf6679' },
-    ].filter(d => d.value > 0);
+    // Pressure Bar Chart Data (Quarterly)
+    const pressureBarData = ['q1', 'q2', 'q3', 'q4'].map(q => ({
+        name: q.toUpperCase(),
+        Possessions: stats[q]?.oppPossessions || 0,
+        Pressures: stats[q]?.pressures || 0
+    }));
 
-    // Pressure Chart: Pressures vs Possessions
-    const pressureChartData = [
-        { name: 'Pressures', value: sumStats('pressures'), color: '#4caf50' },
-        { name: 'Possessions', value: Math.max(0, sumStats('oppPossessions') - sumStats('pressures')), color: '#bb86fc' }
-    ].filter(d => d.value > 0);
+    // Ruck Bar Chart Data (Quarterly)
+    const ruckBarData = ['q1', 'q2', 'q3', 'q4'].map(q => {
+        const total = (stats[q]?.defRuck || 0) + (stats[q]?.midRuck || 0) + (stats[q]?.offRuck || 0);
+        const won = (stats[q]?.defRuckWon || 0) + (stats[q]?.midRuckWon || 0) + (stats[q]?.offRuckWon || 0);
+        return {
+            name: q.toUpperCase(),
+            Total: total,
+            Won: won
+        };
+    });
 
     const ownPuckoutData = [
         { name: 'Won', value: sumStats('ownPuckoutWon'), color: '#4caf50' },
@@ -62,13 +69,7 @@ const PlayerStatsView = () => {
     // Ruck Analysis
     const totalRucks = sumStats('defRuck') + sumStats('midRuck') + sumStats('offRuck');
     const rucksWon = sumStats('defRuckWon') + sumStats('midRuckWon') + sumStats('offRuckWon');
-    const rucksLost = Math.max(0, totalRucks - rucksWon);
     const ruckEfficiency = totalRucks > 0 ? Math.round((rucksWon / totalRucks) * 100) : 0;
-
-    const ruckPieDataFixed = [
-        { name: 'Won', value: rucksWon, color: '#00c853' },
-        { name: 'Lost', value: rucksLost, color: '#ff0000' }
-    ];
 
     const [isPdfMode, setIsPdfMode] = React.useState(false);
 
@@ -107,6 +108,27 @@ const PlayerStatsView = () => {
             {sub && <div style={{ fontSize: '0.75rem', color: '#666' }}>{sub}</div>}
         </div>
     );
+
+    const renderCustomLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent, index, name, value }) => {
+        const RADIAN = Math.PI / 180;
+        const radius = outerRadius + 25;
+        const x = cx + radius * Math.cos(-midAngle * RADIAN);
+        const y = cy + radius * Math.sin(-midAngle * RADIAN);
+
+        return (
+            <text
+                x={x}
+                y={y}
+                fill={isPdfMode ? "#333" : "#fff"}
+                textAnchor={x > cx ? 'start' : 'end'}
+                dominantBaseline="central"
+                fontSize="12px"
+                fontWeight="bold"
+            >
+                {`${name}: ${value}`}
+            </text>
+        );
+    };
 
     return (
         <div style={{ padding: '16px', paddingBottom: '80px' }}>
@@ -161,8 +183,8 @@ const PlayerStatsView = () => {
                                             paddingAngle={5}
                                             dataKey="value"
                                             isAnimationActive={false}
-                                            label={({ name, value }) => `${name}: ${value}`}
-                                            labelLine={false}
+                                            label={renderCustomLabel}
+                                            labelLine={true}
                                         >
                                             {shotData.map((entry, index) => (
                                                 <Cell key={`cell-${index}`} fill={entry.color} />
@@ -184,8 +206,8 @@ const PlayerStatsView = () => {
                                         paddingAngle={5}
                                         dataKey="value"
                                         isAnimationActive={false}
-                                        label={({ name, value }) => `${name}: ${value}`}
-                                        labelLine={false}
+                                        label={renderCustomLabel}
+                                        labelLine={true}
                                     >
                                         {shotData.map((entry, index) => (
                                             <Cell key={`cell-${index}`} fill={entry.color} />
@@ -198,7 +220,7 @@ const PlayerStatsView = () => {
                         )}
                     </div>
                     <div style={{ display: 'flex', gap: '10px', marginTop: '10px', flexWrap: 'wrap' }}>
-                        <KPICard title="Attacks Inside" value={totalAttacks} color={isPdfMode ? '#333' : '#fff'} bgColor={isPdfMode ? '#fff' : '#1e1e1e'} titleColor={isPdfMode ? '#666' : '#b0b0b0'} />
+                        <KPICard title="Player Inside 65" value={totalAttacks} color={isPdfMode ? '#333' : '#fff'} bgColor={isPdfMode ? '#fff' : '#1e1e1e'} titleColor={isPdfMode ? '#666' : '#b0b0b0'} />
                         <KPICard title="Total Shots" value={sumStats('shotTaken')} color={isPdfMode ? '#333' : '#fff'} bgColor={isPdfMode ? '#fff' : '#1e1e1e'} titleColor={isPdfMode ? '#666' : '#b0b0b0'} />
                         <KPICard title="Scores" value={sumStats('score')} color="#4caf50" bgColor={isPdfMode ? '#fff' : '#1e1e1e'} titleColor={isPdfMode ? '#666' : '#b0b0b0'} />
                         <KPICard title="Territorial Effectiveness" value={`${territorialEffectiveness}%`} color={isPdfMode ? '#333' : '#fff'} bgColor={isPdfMode ? '#fff' : '#1e1e1e'} titleColor={isPdfMode ? '#666' : '#b0b0b0'} />
@@ -220,50 +242,26 @@ const PlayerStatsView = () => {
                     <div style={{ height: '320px', width: '100%', minWidth: '300px', display: 'flex', justifyContent: 'center' }}>
                         {isPdfMode ? (
                             <div style={{ width: '100%', display: 'flex', justifyContent: 'center' }}>
-                                <div style={{ margin: '0 auto' }}>
-                                    <PieChart width={480} height={300}>
-                                        <Pie
-                                            data={pressureChartData}
-                                            cx="50%"
-                                            cy="50%"
-                                            innerRadius={60}
-                                            outerRadius={80}
-                                            paddingAngle={5}
-                                            dataKey="value"
-                                            isAnimationActive={false}
-                                            label={({ name, value }) => `${name}: ${value}`}
-                                            labelLine={false}
-                                        >
-                                            {pressureChartData.map((entry, index) => (
-                                                <Cell key={`cell-${index}`} fill={entry.color} />
-                                            ))}
-                                        </Pie>
-                                        <Legend layout="horizontal" verticalAlign="bottom" iconSize={10} wrapperStyle={{ fontSize: '12px' }} />
-                                    </PieChart>
-                                </div>
+                                <BarChart width={500} height={300} data={pressureBarData}>
+                                    <CartesianGrid strokeDasharray="3 3" stroke="#444" />
+                                    <XAxis dataKey="name" stroke="#333" />
+                                    <YAxis stroke="#333" />
+                                    <Legend wrapperStyle={{ color: '#333' }} />
+                                    <Bar dataKey="Possessions" fill="#bb86fc" isAnimationActive={false} label={{ position: 'top', fill: '#333', fontSize: 12 }} />
+                                    <Bar dataKey="Pressures" fill="#4caf50" isAnimationActive={false} label={{ position: 'top', fill: '#333', fontSize: 12 }} />
+                                </BarChart>
                             </div>
                         ) : (
                             <ResponsiveContainer width="100%" height="100%">
-                                <PieChart>
-                                    <Pie
-                                        data={pressureChartData}
-                                        cx="50%"
-                                        cy="50%"
-                                        innerRadius={60}
-                                        outerRadius={80}
-                                        paddingAngle={5}
-                                        dataKey="value"
-                                        isAnimationActive={false}
-                                        label={({ name, value }) => `${name}: ${value}`}
-                                        labelLine={false}
-                                    >
-                                        {pressureChartData.map((entry, index) => (
-                                            <Cell key={`cell-${index}`} fill={entry.color} />
-                                        ))}
-                                    </Pie>
-                                    <Tooltip />
-                                    <Legend layout="vertical" align="right" verticalAlign="middle" iconSize={10} wrapperStyle={{ fontSize: '12px' }} />
-                                </PieChart>
+                                <BarChart data={pressureBarData}>
+                                    <CartesianGrid strokeDasharray="3 3" stroke="#444" />
+                                    <XAxis dataKey="name" stroke="#fff" />
+                                    <YAxis stroke="#fff" />
+                                    <Tooltip contentStyle={{ backgroundColor: '#333', border: 'none' }} />
+                                    <Legend />
+                                    <Bar dataKey="Possessions" fill="#bb86fc" />
+                                    <Bar dataKey="Pressures" fill="#4caf50" />
+                                </BarChart>
                             </ResponsiveContainer>
                         )}
                     </div>
@@ -292,50 +290,26 @@ const PlayerStatsView = () => {
                     <div style={{ height: '320px', width: '100%', minWidth: '300px', display: 'flex', justifyContent: 'center' }}>
                         {isPdfMode ? (
                             <div style={{ width: '100%', display: 'flex', justifyContent: 'center' }}>
-                                <div style={{ margin: '0 auto' }}>
-                                    <PieChart width={480} height={300}>
-                                        <Pie
-                                            data={ruckPieDataFixed}
-                                            cx="50%"
-                                            cy="50%"
-                                            innerRadius={60}
-                                            outerRadius={80}
-                                            paddingAngle={5}
-                                            dataKey="value"
-                                            isAnimationActive={false}
-                                            label={({ name, value }) => `${name}: ${value}`}
-                                            labelLine={false}
-                                        >
-                                            {ruckPieDataFixed.map((entry, index) => (
-                                                <Cell key={`cell-${index}`} fill={entry.color} />
-                                            ))}
-                                        </Pie>
-                                        <Legend layout="horizontal" verticalAlign="bottom" iconSize={10} wrapperStyle={{ fontSize: '12px' }} />
-                                    </PieChart>
-                                </div>
+                                <BarChart width={500} height={300} data={ruckBarData}>
+                                    <CartesianGrid strokeDasharray="3 3" stroke="#444" />
+                                    <XAxis dataKey="name" stroke="#333" />
+                                    <YAxis stroke="#333" />
+                                    <Legend wrapperStyle={{ color: '#333' }} />
+                                    <Bar dataKey="Total" fill="#bb86fc" isAnimationActive={false} label={{ position: 'top', fill: '#333', fontSize: 12 }} />
+                                    <Bar dataKey="Won" fill="#00c853" isAnimationActive={false} label={{ position: 'top', fill: '#333', fontSize: 12 }} />
+                                </BarChart>
                             </div>
                         ) : (
                             <ResponsiveContainer width="100%" height="100%">
-                                <PieChart>
-                                    <Pie
-                                        data={ruckPieDataFixed}
-                                        cx="50%"
-                                        cy="50%"
-                                        innerRadius={60}
-                                        outerRadius={80}
-                                        paddingAngle={5}
-                                        dataKey="value"
-                                        isAnimationActive={false}
-                                        label={({ name, value }) => `${name}: ${value}`}
-                                        labelLine={false}
-                                    >
-                                        {ruckPieDataFixed.map((entry, index) => (
-                                            <Cell key={`cell-${index}`} fill={entry.color} />
-                                        ))}
-                                    </Pie>
-                                    <Tooltip />
-                                    <Legend layout="vertical" align="right" verticalAlign="middle" iconSize={10} wrapperStyle={{ fontSize: '12px' }} />
-                                </PieChart>
+                                <BarChart data={ruckBarData}>
+                                    <CartesianGrid strokeDasharray="3 3" stroke="#444" />
+                                    <XAxis dataKey="name" stroke="#fff" />
+                                    <YAxis stroke="#fff" />
+                                    <Tooltip contentStyle={{ backgroundColor: '#333', border: 'none' }} />
+                                    <Legend />
+                                    <Bar dataKey="Total" fill="#bb86fc" />
+                                    <Bar dataKey="Won" fill="#00c853" />
+                                </BarChart>
                             </ResponsiveContainer>
                         )}
                     </div>
@@ -374,8 +348,8 @@ const PlayerStatsView = () => {
                                             paddingAngle={5}
                                             dataKey="value"
                                             isAnimationActive={false}
-                                            label={({ name, value }) => `${name}: ${value}`}
-                                            labelLine={false}
+                                            label={renderCustomLabel}
+                                            labelLine={true}
                                         >
                                             {ownPuckoutData.map((entry, index) => (
                                                 <Cell key={`cell-${index}`} fill={entry.color} />
@@ -394,8 +368,8 @@ const PlayerStatsView = () => {
                                                 paddingAngle={5}
                                                 dataKey="value"
                                                 isAnimationActive={false}
-                                                label={({ name, value }) => `${name}: ${value}`}
-                                                labelLine={false}
+                                                label={renderCustomLabel}
+                                                labelLine={true}
                                             >
                                                 {ownPuckoutData.map((entry, index) => (
                                                     <Cell key={`cell-${index}`} fill={entry.color} />
@@ -423,8 +397,8 @@ const PlayerStatsView = () => {
                                             paddingAngle={5}
                                             dataKey="value"
                                             isAnimationActive={false}
-                                            label={({ name, value }) => `${name}: ${value}`}
-                                            labelLine={false}
+                                            label={renderCustomLabel}
+                                            labelLine={true}
                                         >
                                             {oppPuckoutData.map((entry, index) => (
                                                 <Cell key={`cell-${index}`} fill={entry.color} />
@@ -443,8 +417,8 @@ const PlayerStatsView = () => {
                                                 paddingAngle={5}
                                                 dataKey="value"
                                                 isAnimationActive={false}
-                                                label={({ name, value }) => `${name}: ${value}`}
-                                                labelLine={false}
+                                                label={renderCustomLabel}
+                                                labelLine={true}
                                             >
                                                 {oppPuckoutData.map((entry, index) => (
                                                     <Cell key={`cell-${index}`} fill={entry.color} />

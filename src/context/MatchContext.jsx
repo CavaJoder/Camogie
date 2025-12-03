@@ -15,7 +15,9 @@ const INITIAL_MATCH_INFO = {
   venue: '',
   competition: '',
   homeCrest: null,
-  awayCrest: null
+  awayCrest: null,
+  homeTeamColor: '#bb86fc',
+  awayTeamColor: '#bb86fc'
 };
 
 export const MatchProvider = ({ children }) => {
