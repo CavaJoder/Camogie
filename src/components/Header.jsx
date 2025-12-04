@@ -10,12 +10,12 @@ const Header = () => {
 
     const isAlert = useMemo(() => {
         const totalSeconds = timer.minutes * 60 + timer.seconds;
-        // 15:00 to 16:59 (15*60 = 900s)
-        if (totalSeconds >= 900 && totalSeconds < 1020) return true;
-        // 30:00 onwards (30*60 = 1800s)
-        if (totalSeconds >= 1800) return true;
+        // Alert at end of Q2 (15:00-16:59) only if we're in Q2
+        if (timer.quarter === 'Q2' && totalSeconds >= 900 && totalSeconds < 1020) return true;
+        // Alert at end of Q4/FT (30:00+) only if we're in Q4 or FT
+        if ((timer.quarter === 'Q4' || timer.quarter === 'FT') && totalSeconds >= 1800) return true;
         return false;
-    }, [timer.minutes, timer.seconds]);
+    }, [timer.minutes, timer.seconds, timer.quarter]);
 
     const formatDate = (dateStr) => {
         if (!dateStr) return '';

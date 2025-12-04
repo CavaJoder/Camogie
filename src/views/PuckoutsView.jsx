@@ -2,10 +2,9 @@ import React, { useState } from 'react';
 import { useMatch } from '../context/MatchContext';
 
 const PuckoutsView = () => {
-    const { matchInfo } = useMatch();
+    const { matchInfo, pitchStats, addPitchEvent } = useMatch();
     const [selectedOutcome, setSelectedOutcome] = useState(null); // 'won' or 'lost'
-    const [puckouts, setPuckouts] = useState({ teamA: [], teamB: [] });
-    const [viewTeam, setViewTeam] = useState('teamA'); // Toggle between teams for viewing AND recording
+    const [viewTeam, setViewTeam] = useState('home'); // Toggle between teams for viewing AND recording
 
     const handlePitchClick = (e) => {
         if (!selectedOutcome) {
@@ -22,17 +21,14 @@ const PuckoutsView = () => {
             x,
             y,
             outcome: selectedOutcome,
-            team: viewTeam, // Use viewTeam instead of selectedTeam
+            team: viewTeam,
             id: Date.now()
         };
 
-        setPuckouts(prev => ({
-            ...prev,
-            [viewTeam]: [...prev[viewTeam], newPuckout] // Use viewTeam instead of selectedTeam
-        }));
+        addPitchEvent('puckouts', newPuckout);
     };
 
-    const currentPuckouts = puckouts[viewTeam];
+    const currentPuckouts = pitchStats.puckouts.filter(p => p.team === viewTeam);
 
     return (
         <div style={{ padding: '20px', paddingBottom: '80px' }}>
@@ -47,12 +43,12 @@ const PuckoutsView = () => {
             }}>
                 {/* Team Buttons */}
                 <button
-                    onClick={() => setViewTeam('teamA')}
+                    onClick={() => setViewTeam('home')}
                     style={{
                         padding: '12px',
-                        backgroundColor: viewTeam === 'teamA' ? (matchInfo.homeTeamColor || '#bb86fc') : '#2a2a2a',
+                        backgroundColor: viewTeam === 'home' ? (matchInfo.homeTeamColor || '#bb86fc') : '#2a2a2a',
                         color: '#fff',
-                        border: viewTeam === 'teamA' ? `2px solid ${matchInfo.homeTeamColor || '#bb86fc'}` : '2px solid #444',
+                        border: viewTeam === 'home' ? `2px solid ${matchInfo.homeTeamColor || '#bb86fc'}` : '2px solid #444',
                         borderRadius: '8px',
                         fontSize: '0.9rem',
                         fontWeight: 'bold',
@@ -63,12 +59,12 @@ const PuckoutsView = () => {
                     {matchInfo.homeTeam || 'Team A'}
                 </button>
                 <button
-                    onClick={() => setViewTeam('teamB')}
+                    onClick={() => setViewTeam('away')}
                     style={{
                         padding: '12px',
-                        backgroundColor: viewTeam === 'teamB' ? (matchInfo.awayTeamColor || '#bb86fc') : '#2a2a2a',
+                        backgroundColor: viewTeam === 'away' ? (matchInfo.awayTeamColor || '#bb86fc') : '#2a2a2a',
                         color: '#fff',
-                        border: viewTeam === 'teamB' ? `2px solid ${matchInfo.awayTeamColor || '#bb86fc'}` : '2px solid #444',
+                        border: viewTeam === 'away' ? `2px solid ${matchInfo.awayTeamColor || '#bb86fc'}` : '2px solid #444',
                         borderRadius: '8px',
                         fontSize: '0.9rem',
                         fontWeight: 'bold',
@@ -262,10 +258,10 @@ const PuckoutsView = () => {
                 </p>
                 <div style={{ marginTop: '12px', display: 'flex', justifyContent: 'space-around', fontSize: '0.85rem' }}>
                     <span style={{ color: '#b0b0b0' }}>
-                        {matchInfo.homeTeam || 'Team A'}: <span style={{ color: '#4caf50' }}>{puckouts.teamA.filter(p => p.outcome === 'won').length} won</span> / <span style={{ color: '#f44336' }}>{puckouts.teamA.filter(p => p.outcome === 'lost').length} lost</span>
+                        {matchInfo.homeTeam || 'Team A'}: <span style={{ color: '#4caf50' }}>{pitchStats.puckouts.filter(p => p.team === 'home' && p.outcome === 'won').length} won</span> / <span style={{ color: '#f44336' }}>{pitchStats.puckouts.filter(p => p.team === 'home' && p.outcome === 'lost').length} lost</span>
                     </span>
                     <span style={{ color: '#b0b0b0' }}>
-                        {matchInfo.awayTeam || 'Team B'}: <span style={{ color: '#4caf50' }}>{puckouts.teamB.filter(p => p.outcome === 'won').length} won</span> / <span style={{ color: '#f44336' }}>{puckouts.teamB.filter(p => p.outcome === 'lost').length} lost</span>
+                        {matchInfo.awayTeam || 'Team B'}: <span style={{ color: '#4caf50' }}>{pitchStats.puckouts.filter(p => p.team === 'away' && p.outcome === 'won').length} won</span> / <span style={{ color: '#f44336' }}>{pitchStats.puckouts.filter(p => p.team === 'away' && p.outcome === 'lost').length} lost</span>
                     </span>
                 </div>
             </div>

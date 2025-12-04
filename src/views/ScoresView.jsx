@@ -2,10 +2,9 @@ import React, { useState } from 'react';
 import { useMatch } from '../context/MatchContext';
 
 const ScoresView = () => {
-    const { matchInfo } = useMatch();
+    const { matchInfo, pitchStats, addPitchEvent } = useMatch();
     const [selectedType, setSelectedType] = useState(null);
     const [selectedTeam, setSelectedTeam] = useState('home');
-    const [scores, setScores] = useState([]);
 
     const scoreTypes = [
         { id: 'point', label: 'Point', color: '#fff' }, // White
@@ -35,10 +34,10 @@ const ScoresView = () => {
             team: selectedTeam
         };
 
-        setScores(prev => [...prev, newScore]);
+        addPitchEvent('scores', newScore);
     };
 
-    const currentScores = scores.filter(s => s.team === selectedTeam);
+    const currentScores = pitchStats.scores.filter(s => s.team === selectedTeam);
 
     return (
         <div style={{ padding: '20px', paddingBottom: '80px' }}>
@@ -283,10 +282,10 @@ const ScoresView = () => {
                 </p>
                 <div style={{ marginTop: '12px', display: 'flex', justifyContent: 'space-around', fontSize: '0.85rem' }}>
                     <span style={{ color: '#b0b0b0' }}>
-                        {matchInfo.homeTeam || 'Team A'}: <span style={{ color: '#4caf50' }}>{scores.filter(s => s.team === 'home').length} events</span>
+                        {matchInfo.homeTeam || 'Team A'}: <span style={{ color: '#4caf50' }}>{pitchStats.scores.filter(s => s.team === 'home').length} events</span>
                     </span>
                     <span style={{ color: '#b0b0b0' }}>
-                        {matchInfo.awayTeam || 'Team B'}: <span style={{ color: '#4caf50' }}>{scores.filter(s => s.team === 'away').length} events</span>
+                        {matchInfo.awayTeam || 'Team B'}: <span style={{ color: '#4caf50' }}>{pitchStats.scores.filter(s => s.team === 'away').length} events</span>
                     </span>
                 </div>
             </div>

@@ -2,6 +2,9 @@ import React from 'react';
 import { useMatch } from '../context/MatchContext';
 import StatButton from '../components/StatButton';
 
+import ScoresView from './ScoresView';
+import PuckoutsView from './PuckoutsView';
+
 const RecordView = () => {
     const { stats, timer, updateStat } = useMatch();
 
@@ -87,6 +90,14 @@ const RecordView = () => {
                     </div>
                 </div>
             ))}
+
+            <hr style={{ borderColor: '#333', margin: '32px 0' }} />
+
+            <ScoresView />
+
+            <hr style={{ borderColor: '#333', margin: '32px 0' }} />
+
+            <PuckoutsView />
         </div>
     );
 };

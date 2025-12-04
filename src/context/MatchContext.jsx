@@ -39,6 +39,12 @@ export const MatchProvider = ({ children }) => {
     return saved ? JSON.parse(saved) : INITIAL_STATS;
   });
 
+  // Pitch Stats State (Scores & Puckouts)
+  const [pitchStats, setPitchStats] = useState(() => {
+    const saved = localStorage.getItem('match_pitch_stats');
+    return saved ? JSON.parse(saved) : { scores: [], puckouts: [] };
+  });
+
   const timerIntervalRef = useRef(null);
 
   // Persistence Effects
@@ -53,6 +59,10 @@ export const MatchProvider = ({ children }) => {
   useEffect(() => {
     localStorage.setItem('match_stats', JSON.stringify(stats));
   }, [stats]);
+
+  useEffect(() => {
+    localStorage.setItem('match_pitch_stats', JSON.stringify(pitchStats));
+  }, [pitchStats]);
 
   // Timer Logic
   useEffect(() => {
@@ -103,21 +113,11 @@ export const MatchProvider = ({ children }) => {
       return {
         ...prev,
         quarter: nextQuarter,
-        isRunning: shouldKeepRunning,
         minutes: shouldResetTime ? 0 : prev.minutes,
-        seconds: shouldResetTime ? 0 : prev.seconds
+        seconds: shouldResetTime ? 0 : prev.seconds,
+        isRunning: shouldKeepRunning
       };
     });
-  };
-
-  const resetMatch = () => {
-    setTimer({ minutes: 0, seconds: 0, isRunning: false, quarter: 'Q1' });
-    setStats(INITIAL_STATS);
-    // Optional: Keep match info or reset it? Usually keep info, reset stats.
-    // User said "Reset Match button (clears all data and returns to initial state)"
-    // and "Reset clears all match information and team data"
-    setMatchInfo(INITIAL_MATCH_INFO);
-    localStorage.clear();
   };
 
   const updateStat = (statId, delta) => {
@@ -138,8 +138,28 @@ export const MatchProvider = ({ children }) => {
     });
   };
 
+  const addPitchEvent = (type, data) => {
+    setPitchStats(prev => ({
+      ...prev,
+      [type]: [...prev[type], { ...data, quarter: timer.quarter }]
+    }));
+  };
+
   const updateMatchInfo = (field, value) => {
     setMatchInfo(prev => ({ ...prev, [field]: value }));
+  };
+
+  const resetMatch = () => {
+    if (window.confirm('Are you sure you want to reset the match? All data will be lost.')) {
+      setStats(INITIAL_STATS);
+      setTimer({ minutes: 0, seconds: 0, isRunning: false, quarter: 'Q1' });
+      setPitchStats({ scores: [], puckouts: [] });
+      setMatchInfo(INITIAL_MATCH_INFO);
+      localStorage.removeItem('match_stats');
+      localStorage.removeItem('match_timer');
+      localStorage.removeItem('match_pitch_stats');
+      localStorage.removeItem('match_info');
+    }
   };
 
   return (
@@ -147,12 +167,15 @@ export const MatchProvider = ({ children }) => {
       timer,
       matchInfo,
       stats,
+      pitchStats,
+      setMatchInfo,
       startTimer,
       pauseTimer,
       endQuarter,
-      resetMatch,
       updateStat,
-      updateMatchInfo
+      addPitchEvent,
+      updateMatchInfo,
+      resetMatch
     }}>
       {children}
     </MatchContext.Provider>

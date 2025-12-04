@@ -2,15 +2,22 @@ import React from 'react';
 import { useMatch } from '../context/MatchContext';
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
 import html2pdf from 'html2pdf.js';
+import PitchSummary from '../components/PitchSummary';
 
 const PlayerStatsView = () => {
-    const { stats, matchInfo } = useMatch();
+    const { stats, matchInfo, pitchStats } = useMatch();
 
     const sumStats = (statId) => {
         return ['q1', 'q2', 'q3', 'q4'].reduce((total, q) => {
             return total + (stats[q]?.[statId] || 0);
         }, 0);
     };
+
+    // Filter Pitch Stats by Half
+    const firstHalfScores = pitchStats.scores.filter(s => ['Q1', 'Q2'].includes(s.quarter));
+    const secondHalfScores = pitchStats.scores.filter(s => ['Q3', 'Q4', 'FT'].includes(s.quarter));
+    const firstHalfPuckouts = pitchStats.puckouts.filter(p => ['Q1', 'Q2'].includes(p.quarter));
+    const secondHalfPuckouts = pitchStats.puckouts.filter(p => ['Q3', 'Q4', 'FT'].includes(p.quarter));
 
     // Data for Charts
     const shotData = [
@@ -79,17 +86,42 @@ const PlayerStatsView = () => {
         // Wait for state update and render
         setTimeout(() => {
             const element = document.getElementById('printablePlayerStats');
+            if (!element) {
+                console.error('PDF element not found');
+                setIsPdfMode(false);
+                return;
+            }
+
+            const filename = `Player_Analysis_${matchInfo.homeTeam || 'Home'}_vs_${matchInfo.awayTeam || 'Away'}.pdf`;
+
             const opt = {
                 margin: 10,
-                filename: `Player_Analysis_${matchInfo.homeTeam}_vs_${matchInfo.awayTeam}.pdf`,
+                filename: filename,
                 image: { type: 'jpeg', quality: 0.98 },
                 html2canvas: { scale: 2, useCORS: true, logging: true },
                 jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
             };
 
-            html2pdf().set(opt).from(element).save().then(() => {
-                setIsPdfMode(false);
-            });
+            html2pdf().set(opt).from(element).outputPdf('blob')
+                .then((blob) => {
+                    // Create a download link
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = filename;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    URL.revokeObjectURL(url);
+
+                    console.log('PDF generated successfully');
+                    setIsPdfMode(false);
+                })
+                .catch((error) => {
+                    console.error('PDF generation error:', error);
+                    setIsPdfMode(false);
+                    alert('Error generating PDF. Please check the console for details.');
+                });
         }, 500); // 500ms delay to allow styles to apply
     };
 
@@ -439,6 +471,24 @@ const PlayerStatsView = () => {
                         <KPICard title="Opp Lost" value={Math.max(0, sumStats('oppPuckout') - sumStats('oppPuckoutWon'))} color="#bb86fc" bgColor={isPdfMode ? '#fff' : '#1e1e1e'} titleColor={isPdfMode ? '#666' : '#b0b0b0'} />
                     </div>
                 </div>
+
+                {/* Pitch Summaries - PDF Only */}
+                {isPdfMode && (
+                    <>
+                        <div style={{ marginTop: '60px', pageBreakInside: 'avoid' }}>
+                            <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#000', marginBottom: '20px', textAlign: 'center' }}>Pitch Maps - 1st Half</h2>
+                            <PitchSummary title="1st Half Scores" data={firstHalfScores} type="scores" />
+                            <PitchSummary title="1st Half Puckouts" data={firstHalfPuckouts} type="puckouts" />
+                        </div>
+
+                        <div style={{ marginTop: '60px', pageBreakInside: 'avoid' }}>
+                            <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#000', marginBottom: '20px', textAlign: 'center' }}>Pitch Maps - 2nd Half</h2>
+                            <PitchSummary title="2nd Half Scores" data={secondHalfScores} type="scores" />
+                            <PitchSummary title="2nd Half Puckouts" data={secondHalfPuckouts} type="puckouts" />
+                        </div>
+                    </>
+                )}
+
             </div>
 
             <button onClick={generatePDF} style={{

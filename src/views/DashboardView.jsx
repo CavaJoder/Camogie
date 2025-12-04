@@ -2,10 +2,17 @@ import React, { useState } from 'react';
 import { useMatch } from '../context/MatchContext';
 import html2pdf from 'html2pdf.js';
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
+import PitchSummary from '../components/PitchSummary';
 
 const DashboardView = () => {
-    const { stats, timer, matchInfo } = useMatch();
+    const { stats, timer, matchInfo, pitchStats } = useMatch();
     const [isPdfMode, setIsPdfMode] = useState(false);
+
+    // Filter Pitch Stats by Half
+    const firstHalfScores = pitchStats.scores.filter(s => ['Q1', 'Q2'].includes(s.quarter));
+    const secondHalfScores = pitchStats.scores.filter(s => ['Q3', 'Q4', 'FT'].includes(s.quarter));
+    const firstHalfPuckouts = pitchStats.puckouts.filter(p => ['Q1', 'Q2'].includes(p.quarter));
+    const secondHalfPuckouts = pitchStats.puckouts.filter(p => ['Q3', 'Q4', 'FT'].includes(p.quarter));
 
     // Helper to sum stats across specific quarters
     const sumStats = (statId, quarters = ['q1', 'q2', 'q3', 'q4']) => {
@@ -622,6 +629,19 @@ const DashboardView = () => {
                                 <KPICard title="Opp Won" value={sumStats('oppPuckoutWon')} color="#03dac6" bgColor="#fff" titleColor="#666" />
                                 <KPICard title="Opp Lost" value={Math.max(0, sumStats('oppPuckout') - sumStats('oppPuckoutWon'))} color="#bb86fc" bgColor="#fff" titleColor="#666" />
                             </div>
+                        </div>
+
+                        {/* Pitch Summaries */}
+                        <div style={{ marginTop: '60px', pageBreakInside: 'avoid' }}>
+                            <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#000', marginBottom: '20px', textAlign: 'center' }}>Pitch Maps - 1st Half</h2>
+                            <PitchSummary title="1st Half Scores" data={firstHalfScores} type="scores" />
+                            <PitchSummary title="1st Half Puckouts" data={firstHalfPuckouts} type="puckouts" />
+                        </div>
+
+                        <div style={{ marginTop: '60px', pageBreakInside: 'avoid' }}>
+                            <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#000', marginBottom: '20px', textAlign: 'center' }}>Pitch Maps - 2nd Half</h2>
+                            <PitchSummary title="2nd Half Scores" data={secondHalfScores} type="scores" />
+                            <PitchSummary title="2nd Half Puckouts" data={secondHalfPuckouts} type="puckouts" />
                         </div>
                     </div>
                 )}
