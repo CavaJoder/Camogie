@@ -45,7 +45,7 @@ export const PlayerAnalysisProvider = ({ children }) => {
 
     // Metrics to track
     const metrics = [
-        { id: 'effort', label: 'Effort' },
+        { id: 'effort', label: 'Pressures' },
         { id: 'possession', label: 'Possession' },
         { id: 'goodPass', label: 'Good Pass' },
         { id: 'shotTaken', label: 'Shot Taken' },

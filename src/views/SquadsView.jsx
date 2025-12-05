@@ -372,6 +372,51 @@ const SquadsView = () => {
         );
     }
 
+    // CSV Import
+    const handleCsvImport = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            const text = event.target.result;
+            const lines = text.split('\n');
+
+            let addedCount = 0;
+
+            lines.forEach(line => {
+                if (!line.trim()) return;
+
+                const parts = line.split(',').map(part => part.trim());
+                if (parts.length === 0) return;
+
+                const name = parts[0];
+                if (!name) return;
+
+                const positions = parts.slice(1).filter(p => p && validPositions.includes(p));
+
+                const playerData = {
+                    name: name,
+                    number: null,
+                    positions: positions
+                };
+
+                addPlayer(selectedSquadId, playerData);
+                addedCount++;
+            });
+
+            if (addedCount > 0) {
+                alert(`Successfully imported ${addedCount} players`);
+            } else {
+                alert('No valid players found in CSV');
+            }
+
+            // Reset file input
+            e.target.value = '';
+        };
+        reader.readAsText(file);
+    };
+
     // Render squad detail view with players
     return (
         <div style={{ padding: '20px', paddingBottom: '80px' }}>
@@ -405,22 +450,49 @@ const SquadsView = () => {
                     </div>
                 </div>
 
-                <button
-                    onClick={() => setShowPlayerForm(true)}
-                    style={{
-                        backgroundColor: '#4caf50',
-                        color: 'black',
-                        padding: '10px 20px',
-                        borderRadius: '8px',
-                        fontWeight: 'bold',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px'
-                    }}
-                >
-                    <Plus size={20} />
-                    Add Player
-                </button>
+                <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                    <button
+                        onClick={() => setShowPlayerForm(true)}
+                        style={{
+                            backgroundColor: '#4caf50',
+                            color: 'black',
+                            padding: '10px 20px',
+                            borderRadius: '8px',
+                            fontWeight: 'bold',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px'
+                        }}
+                    >
+                        <Plus size={20} />
+                        Add Player
+                    </button>
+
+                    <input
+                        type="file"
+                        accept=".csv,.txt"
+                        onChange={handleCsvImport}
+                        style={{ display: 'none' }}
+                        id="csv-upload"
+                    />
+                    <label
+                        htmlFor="csv-upload"
+                        style={{
+                            backgroundColor: '#bb86fc',
+                            color: 'black',
+                            padding: '10px 20px',
+                            borderRadius: '8px',
+                            fontWeight: 'bold',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            cursor: 'pointer'
+                        }}
+                    >
+                        <Upload size={20} />
+                        Import CSV
+                    </label>
+                </div>
             </div>
 
             {/* Player Form Modal */}
