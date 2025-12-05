@@ -333,142 +333,158 @@ const PlayerAnalysisView = () => {
                 </div>
             )}
 
-            {/* Player List - ULTRA COMPACT */}
+            {/* Matrix Table Layout */}
             {selectedSquad && activePlayers.length > 0 && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
-                    {activePlayers.map((player, index) => {
-                        const stats = getPlayerStats(player.id);
-
-                        return (
-                            <div
-                                key={player.id}
-                                style={{
+                <div style={{
+                    overflowX: 'auto',
+                    backgroundColor: '#1e1e1e',
+                    borderRadius: '8px',
+                    border: '1px solid #333'
+                }}>
+                    <table style={{
+                        width: '100%',
+                        borderCollapse: 'collapse',
+                        fontSize: '0.9rem'
+                    }}>
+                        <thead>
+                            <tr>
+                                <th style={{
+                                    textAlign: 'left',
+                                    padding: '10px',
+                                    borderBottom: '2px solid #444',
+                                    position: 'sticky',
+                                    left: 0,
                                     backgroundColor: '#1e1e1e',
-                                    border: '1px solid #333',
-                                    borderRadius: '4px',
-                                    padding: '3px 5px'
-                                }}
-                            >
-                                {/* Player Header - ULTRA COMPACT */}
-                                <div style={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '5px',
-                                    marginBottom: '3px',
-                                    paddingBottom: '3px',
-                                    borderBottom: '1px solid #333'
+                                    zIndex: 10,
+                                    minWidth: '120px',
+                                    color: '#bb86fc'
                                 }}>
-                                    <div style={{
-                                        backgroundColor: '#4caf50',
-                                        color: 'black',
-                                        width: '18px',
-                                        height: '18px',
-                                        borderRadius: '50%',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        fontWeight: 'bold',
-                                        fontSize: '0.7rem',
-                                        flexShrink: 0
+                                    Metric
+                                </th>
+                                {activePlayers.map((player, index) => (
+                                    <th key={player.id} style={{
+                                        padding: '10px',
+                                        borderBottom: '2px solid #444',
+                                        minWidth: '100px',
+                                        textAlign: 'center'
                                     }}>
-                                        {index + 1}
-                                    </div>
-                                    <div style={{ flex: 1, minWidth: 0 }}>
-                                        <div style={{ color: '#fff', fontSize: '0.8rem', fontWeight: 'bold', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                            {player.name}
-                                        </div>
-                                    </div>
-                                    <button
-                                        onClick={() => removePlayer(player.id)}
-                                        style={{
-                                            backgroundColor: '#cf6679',
-                                            color: 'black',
-                                            width: '18px',
-                                            height: '18px',
-                                            borderRadius: '3px',
+                                        <div style={{
                                             display: 'flex',
+                                            flexDirection: 'column',
                                             alignItems: 'center',
-                                            justifyContent: 'center',
-                                            flexShrink: 0,
-                                            padding: 0
-                                        }}
-                                    >
-                                        <X size={11} />
-                                    </button>
-                                </div>
-
-                                {/* Metrics - ULTRA COMPACT */}
-                                <div style={{
-                                    display: 'flex',
-                                    gap: '3px',
-                                    overflowX: 'auto',
-                                    paddingBottom: '3px'
-                                }}>
-                                    {metrics.map(metric => (
-                                        <div
-                                            key={metric.id}
-                                            style={{
-                                                minWidth: '110px',
-                                                backgroundColor: '#2d2d2d',
-                                                border: '1px solid #444',
-                                                borderRadius: '3px',
-                                                padding: '3px',
+                                            gap: '4px'
+                                        }}>
+                                            <div style={{
+                                                backgroundColor: '#4caf50',
+                                                color: 'black',
+                                                width: '24px',
+                                                height: '24px',
+                                                borderRadius: '50%',
                                                 display: 'flex',
                                                 alignItems: 'center',
-                                                justifyContent: 'space-between'
-                                            }}
-                                        >
-                                            {/* Label and Count */}
-                                            <div style={{ flex: 1, minWidth: 0 }}>
-                                                <div style={{ color: '#b0b0b0', fontSize: '0.55rem', marginBottom: '1px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                                    {metric.label}
-                                                </div>
-                                                <div style={{ color: '#4caf50', fontSize: '0.95rem', fontWeight: 'bold', lineHeight: 1 }}>
-                                                    {stats[metric.id] || 0}
-                                                </div>
+                                                justifyContent: 'center',
+                                                fontWeight: 'bold',
+                                                fontSize: '0.85rem'
+                                            }}>
+                                                {index + 1}
                                             </div>
-
-                                            {/* Buttons */}
-                                            <div style={{ display: 'flex', gap: '2px', flexShrink: 0 }}>
-                                                <button
-                                                    onClick={() => decrementStat(player.id, metric.id)}
-                                                    style={{
-                                                        backgroundColor: '#cf6679',
-                                                        color: 'black',
-                                                        width: '22px',
-                                                        height: '22px',
-                                                        borderRadius: '3px',
-                                                        display: 'flex',
-                                                        alignItems: 'center',
-                                                        justifyContent: 'center',
-                                                        padding: 0
-                                                    }}
-                                                >
-                                                    <Minus size={11} />
-                                                </button>
-                                                <button
-                                                    onClick={() => incrementStat(player.id, metric.id)}
-                                                    style={{
-                                                        backgroundColor: '#4caf50',
-                                                        color: 'black',
-                                                        width: '22px',
-                                                        height: '22px',
-                                                        borderRadius: '3px',
-                                                        display: 'flex',
-                                                        alignItems: 'center',
-                                                        justifyContent: 'center',
-                                                        padding: 0
-                                                    }}
-                                                >
-                                                    <Plus size={11} />
-                                                </button>
-                                            </div>
+                                            <button
+                                                onClick={() => removePlayer(player.id)}
+                                                style={{
+                                                    background: 'none',
+                                                    border: 'none',
+                                                    color: '#cf6679',
+                                                    padding: 0,
+                                                    cursor: 'pointer',
+                                                    opacity: 0.6
+                                                }}
+                                                title="Remove Player"
+                                            >
+                                                <X size={12} />
+                                            </button>
                                         </div>
-                                    ))}
-                                </div>
-                            </div>
-                        );
-                    })}
+                                    </th>
+                                ))}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {metrics.map(metric => (
+                                <tr key={metric.id} style={{ borderBottom: '1px solid #333' }}>
+                                    <td style={{
+                                        padding: '10px',
+                                        position: 'sticky',
+                                        left: 0,
+                                        backgroundColor: '#1e1e1e',
+                                        zIndex: 5,
+                                        borderRight: '1px solid #333',
+                                        fontWeight: 'bold',
+                                        color: '#e0e0e0'
+                                    }}>
+                                        {metric.label}
+                                    </td>
+                                    {activePlayers.map(player => {
+                                        const stats = getPlayerStats(player.id);
+                                        const count = stats[metric.id] || 0;
+                                        return (
+                                            <td key={player.id} style={{ padding: '8px', textAlign: 'center' }}>
+                                                <div style={{
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    gap: '8px'
+                                                }}>
+                                                    <button
+                                                        onClick={() => incrementStat(player.id, metric.id)}
+                                                        style={{
+                                                            backgroundColor: '#4caf50',
+                                                            color: 'black',
+                                                            width: '28px',
+                                                            height: '28px',
+                                                            borderRadius: '4px',
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            justifyContent: 'center',
+                                                            padding: 0,
+                                                            border: 'none',
+                                                            cursor: 'pointer'
+                                                        }}
+                                                    >
+                                                        <Plus size={16} />
+                                                    </button>
+                                                    <span style={{
+                                                        color: '#fff',
+                                                        fontWeight: 'bold',
+                                                        fontSize: '1.1rem',
+                                                        minWidth: '24px'
+                                                    }}>
+                                                        {count}
+                                                    </span>
+                                                    <button
+                                                        onClick={() => decrementStat(player.id, metric.id)}
+                                                        style={{
+                                                            backgroundColor: '#cf6679',
+                                                            color: 'black',
+                                                            width: '28px',
+                                                            height: '28px',
+                                                            borderRadius: '4px',
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            justifyContent: 'center',
+                                                            padding: 0,
+                                                            border: 'none',
+                                                            cursor: 'pointer'
+                                                        }}
+                                                    >
+                                                        <Minus size={16} />
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        );
+                                    })}
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
                 </div>
             )}
 
