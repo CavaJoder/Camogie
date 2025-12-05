@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { MatchProvider } from './context/MatchContext';
+import { SquadProvider } from './context/SquadContext';
+import { PlayerAnalysisProvider } from './context/PlayerAnalysisContext';
 import './pdf.css'; // Import PDF styles
 import './player-pdf.css';
 import Header from './components/Header';
@@ -10,6 +12,8 @@ import PlayerStatsView from './views/PlayerStatsView';
 import SettingsView from './views/SettingsView';
 import PuckoutsView from './views/PuckoutsView';
 import ScoresView from './views/ScoresView';
+import SquadsView from './views/SquadsView';
+import PlayerAnalysisView from './views/PlayerAnalysisView';
 
 function App() {
   const [activeTab, setActiveTab] = useState('record');
@@ -22,20 +26,26 @@ function App() {
       case 'settings': return <SettingsView />;
       case 'puckouts': return <PuckoutsView />;
       case 'scores': return <ScoresView />;
+      case 'squads': return <SquadsView />;
+      case 'playerAnalysis': return <PlayerAnalysisView />;
       default: return <RecordView />;
     }
   };
 
   return (
-    <MatchProvider>
-      <div style={{ paddingTop: '180px' }}> {/* Space for fixed header */}
-        <Header />
-        <main>
-          {renderView()}
-        </main>
-        <BottomNav activeTab={activeTab} onTabChange={setActiveTab} />
-      </div>
-    </MatchProvider>
+    <PlayerAnalysisProvider>
+      <SquadProvider>
+        <MatchProvider>
+          <div style={{ paddingTop: ['playerAnalysis', 'squads', 'settings'].includes(activeTab) ? '0px' : '180px' }}> {/* No padding for full screen views */}
+            {!['playerAnalysis', 'squads', 'settings'].includes(activeTab) && <Header />}
+            <main>
+              {renderView()}
+            </main>
+            <BottomNav activeTab={activeTab} onTabChange={setActiveTab} />
+          </div>
+        </MatchProvider>
+      </SquadProvider>
+    </PlayerAnalysisProvider>
   );
 }
 
