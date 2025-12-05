@@ -354,8 +354,9 @@ const PlayerAnalysisView = () => {
                                     borderBottom: '2px solid #444',
                                     position: 'sticky',
                                     left: 0,
+                                    top: 0,
                                     backgroundColor: '#1e1e1e',
-                                    zIndex: 10,
+                                    zIndex: 20,
                                     minWidth: '120px',
                                     color: '#bb86fc'
                                 }}>
@@ -366,7 +367,11 @@ const PlayerAnalysisView = () => {
                                         padding: '10px',
                                         borderBottom: '2px solid #444',
                                         minWidth: '100px',
-                                        textAlign: 'center'
+                                        textAlign: 'center',
+                                        position: 'sticky',
+                                        top: 0,
+                                        backgroundColor: '#1e1e1e',
+                                        zIndex: 10
                                     }}>
                                         <div style={{
                                             display: 'flex',
