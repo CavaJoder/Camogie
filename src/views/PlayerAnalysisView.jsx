@@ -339,11 +339,14 @@ const PlayerAnalysisView = () => {
                     overflowX: 'auto',
                     backgroundColor: '#1e1e1e',
                     borderRadius: '8px',
-                    border: '1px solid #333'
+                    border: '1px solid #333',
+                    maxHeight: 'calc(100vh - 200px)', // Limit height to enable vertical scrolling within table
+                    overflowY: 'auto' // Enable vertical scrolling
                 }}>
                     <table style={{
                         width: '100%',
-                        borderCollapse: 'collapse',
+                        borderCollapse: 'separate', // Required for sticky to work well with borders
+                        borderSpacing: 0,
                         fontSize: '0.9rem'
                     }}>
                         <thead>
@@ -352,13 +355,15 @@ const PlayerAnalysisView = () => {
                                     textAlign: 'left',
                                     padding: '10px',
                                     borderBottom: '2px solid #444',
+                                    borderRight: '1px solid #444',
                                     position: 'sticky',
                                     left: 0,
                                     top: 0,
                                     backgroundColor: '#1e1e1e',
                                     zIndex: 20,
                                     minWidth: '120px',
-                                    color: '#bb86fc'
+                                    color: '#bb86fc',
+                                    boxShadow: '2px 2px 5px rgba(0,0,0,0.5)' // Shadow for depth
                                 }}>
                                     Metric
                                 </th>
@@ -366,12 +371,14 @@ const PlayerAnalysisView = () => {
                                     <th key={player.id} style={{
                                         padding: '10px',
                                         borderBottom: '2px solid #444',
+                                        borderRight: '1px solid #444',
                                         minWidth: '100px',
                                         textAlign: 'center',
                                         position: 'sticky',
                                         top: 0,
                                         backgroundColor: '#1e1e1e',
-                                        zIndex: 10
+                                        zIndex: 10,
+                                        boxShadow: '0 2px 5px rgba(0,0,0,0.5)'
                                     }}>
                                         <div style={{
                                             display: 'flex',
@@ -421,9 +428,11 @@ const PlayerAnalysisView = () => {
                                         left: 0,
                                         backgroundColor: '#1e1e1e',
                                         zIndex: 5,
-                                        borderRight: '1px solid #333',
+                                        borderRight: '1px solid #444',
+                                        borderBottom: '1px solid #333',
                                         fontWeight: 'bold',
-                                        color: '#e0e0e0'
+                                        color: '#e0e0e0',
+                                        boxShadow: '2px 0 5px rgba(0,0,0,0.2)'
                                     }}>
                                         {metric.label}
                                     </td>
@@ -431,7 +440,12 @@ const PlayerAnalysisView = () => {
                                         const stats = getPlayerStats(player.id);
                                         const count = stats[metric.id] || 0;
                                         return (
-                                            <td key={player.id} style={{ padding: '8px', textAlign: 'center' }}>
+                                            <td key={player.id} style={{
+                                                padding: '8px',
+                                                textAlign: 'center',
+                                                borderRight: '1px solid #444',
+                                                borderBottom: '1px solid #333'
+                                            }}>
                                                 <div style={{
                                                     display: 'flex',
                                                     alignItems: 'center',

@@ -1,5 +1,5 @@
 import React from 'react';
-import { ClipboardList, LayoutDashboard, User, Settings, Target, Trophy, Users, BarChart3 } from 'lucide-react';
+import { ClipboardList, LayoutDashboard, User, Settings, Target, Trophy, Users, BarChart3, PenTool } from 'lucide-react';
 
 const BottomNav = ({ activeTab, onTabChange }) => {
     const tabs = [
@@ -11,6 +11,8 @@ const BottomNav = ({ activeTab, onTabChange }) => {
         // { id: 'scores', label: 'Scores', icon: Trophy },
         { id: 'squads', label: 'Squads', icon: Users },
         { id: 'playerAnalysis', label: 'Analysis', icon: BarChart3 },
+        { id: 'manual', label: 'Manual', icon: PenTool },
+        { id: 'manualDashboard', label: 'Man View', icon: LayoutDashboard },
     ];
 
     return (

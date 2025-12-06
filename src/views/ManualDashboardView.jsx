@@ -4,32 +4,41 @@ import html2pdf from 'html2pdf.js';
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
 import PitchSummary from '../components/PitchSummary';
 
-const DashboardView = () => {
-    const { stats, timer, matchInfo, pitchStats } = useMatch();
+const ManualDashboardView = () => {
+    const { manualStats, matchInfo, manualPitchEvents } = useMatch();
     const [isPdfMode, setIsPdfMode] = useState(false);
 
+    // Flatten manual pitch events to match DashboardView expectations
+    const scores = [
+        ...manualPitchEvents.q1.scores.map(s => ({ ...s, quarter: 'Q1' })),
+        ...manualPitchEvents.q2.scores.map(s => ({ ...s, quarter: 'Q2' })),
+        ...manualPitchEvents.q3.scores.map(s => ({ ...s, quarter: 'Q3' })),
+        ...manualPitchEvents.q4.scores.map(s => ({ ...s, quarter: 'Q4' }))
+    ];
+
+    const puckouts = [
+        ...manualPitchEvents.q1.puckouts.map(p => ({ ...p, quarter: 'Q1' })),
+        ...manualPitchEvents.q2.puckouts.map(p => ({ ...p, quarter: 'Q2' })),
+        ...manualPitchEvents.q3.puckouts.map(p => ({ ...p, quarter: 'Q3' })),
+        ...manualPitchEvents.q4.puckouts.map(p => ({ ...p, quarter: 'Q4' }))
+    ];
+
     // Filter Pitch Stats by Half
-    const firstHalfScores = pitchStats.scores.filter(s => ['Q1', 'Q2'].includes(s.quarter));
-    const secondHalfScores = pitchStats.scores.filter(s => ['Q3', 'Q4', 'FT'].includes(s.quarter));
-    const firstHalfPuckouts = pitchStats.puckouts.filter(p => ['Q1', 'Q2'].includes(p.quarter));
-    const secondHalfPuckouts = pitchStats.puckouts.filter(p => ['Q3', 'Q4', 'FT'].includes(p.quarter));
+    const firstHalfScores = scores.filter(s => ['Q1', 'Q2'].includes(s.quarter));
+    const secondHalfScores = scores.filter(s => ['Q3', 'Q4'].includes(s.quarter));
+    const firstHalfPuckouts = puckouts.filter(p => ['Q1', 'Q2'].includes(p.quarter));
+    const secondHalfPuckouts = puckouts.filter(p => ['Q3', 'Q4'].includes(p.quarter));
 
     // Helper to sum stats across specific quarters
     const sumStats = (statId, quarters = ['q1', 'q2', 'q3', 'q4']) => {
         return quarters.reduce((total, q) => {
-            return total + (stats[q]?.[statId] || 0);
+            return total + (manualStats[q]?.[statId] || 0);
         }, 0);
     };
 
-    // Helper to determine color based on quarter status
+    // Helper to determine color based on quarter status (Simplified for Manual View - assume all active/past)
     const getQuarterColor = (q) => {
-        const order = ['Q1', 'Q2', 'Q3', 'Q4', 'FT'];
-        const currentIdx = order.indexOf(timer.quarter);
-        const qIdx = order.indexOf(q.toUpperCase());
-
-        if (currentIdx > qIdx) return '#4caf50'; // Completed
-        if (currentIdx === qIdx) return '#cf6679'; // In Progress
-        return '#b0b0b0'; // Future (Grey)
+        return '#4caf50'; // Always green for manual view as data is entered manually
     };
 
     const formatDate = (dateStr) => {
@@ -55,14 +64,14 @@ const DashboardView = () => {
     // Pressure Bar Chart Data (Quarterly)
     const pressureBarData = ['q1', 'q2', 'q3', 'q4'].map(q => ({
         name: q.toUpperCase(),
-        Possessions: stats[q]?.oppPossessions || 0,
-        Pressures: stats[q]?.pressures || 0
+        Possessions: manualStats[q]?.oppPossessions || 0,
+        Pressures: manualStats[q]?.pressures || 0
     }));
 
     // Ruck Bar Chart Data (Quarterly)
     const ruckBarData = ['q1', 'q2', 'q3', 'q4'].map(q => {
-        const total = (stats[q]?.defRuck || 0) + (stats[q]?.midRuck || 0) + (stats[q]?.offRuck || 0);
-        const won = (stats[q]?.defRuckWon || 0) + (stats[q]?.midRuckWon || 0) + (stats[q]?.offRuckWon || 0);
+        const total = (manualStats[q]?.defRuck || 0) + (manualStats[q]?.midRuck || 0) + (manualStats[q]?.offRuck || 0);
+        const won = (manualStats[q]?.defRuckWon || 0) + (manualStats[q]?.midRuckWon || 0) + (manualStats[q]?.offRuckWon || 0);
         return {
             name: q.toUpperCase(),
             Total: total,
@@ -73,12 +82,12 @@ const DashboardView = () => {
     // Zone Ruck Data (New Chart)
     const zoneRuckData = ['q1', 'q2', 'q3', 'q4'].map(q => ({
         name: q.toUpperCase(),
-        defWon: stats[q]?.defRuckWon || 0,
-        defLost: (stats[q]?.defRuck || 0) - (stats[q]?.defRuckWon || 0),
-        midWon: stats[q]?.midRuckWon || 0,
-        midLost: (stats[q]?.midRuck || 0) - (stats[q]?.midRuckWon || 0),
-        offWon: stats[q]?.offRuckWon || 0,
-        offLost: (stats[q]?.offRuck || 0) - (stats[q]?.offRuckWon || 0),
+        defWon: manualStats[q]?.defRuckWon || 0,
+        defLost: (manualStats[q]?.defRuck || 0) - (manualStats[q]?.defRuckWon || 0),
+        midWon: manualStats[q]?.midRuckWon || 0,
+        midLost: (manualStats[q]?.midRuck || 0) - (manualStats[q]?.midRuckWon || 0),
+        offWon: manualStats[q]?.offRuckWon || 0,
+        offLost: (manualStats[q]?.offRuck || 0) - (manualStats[q]?.offRuckWon || 0),
     }));
 
     // Puckout Data
@@ -120,7 +129,7 @@ const DashboardView = () => {
             const element = document.getElementById('printableStats');
             const opt = {
                 margin: 10,
-                filename: `Match_Analysis_${matchInfo.homeTeam}_vs_${matchInfo.awayTeam}_${matchInfo.date}.pdf`,
+                filename: `Manual_Match_Analysis_${matchInfo.homeTeam}_vs_${matchInfo.awayTeam}_${matchInfo.date}.pdf`,
                 image: { type: 'jpeg', quality: 0.98 },
                 html2canvas: { scale: 2, useCORS: true },
                 jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
@@ -139,43 +148,43 @@ const DashboardView = () => {
 
         quarters.forEach(q => {
             if (type === 'rucks') {
-                const rucks = (stats[q]?.defRuck || 0) + (stats[q]?.midRuck || 0) + (stats[q]?.offRuck || 0);
-                const won = (stats[q]?.defRuckWon || 0) + (stats[q]?.midRuckWon || 0) + (stats[q]?.offRuckWon || 0);
+                const rucks = (manualStats[q]?.defRuck || 0) + (manualStats[q]?.midRuck || 0) + (manualStats[q]?.offRuck || 0);
+                const won = (manualStats[q]?.defRuckWon || 0) + (manualStats[q]?.midRuckWon || 0) + (manualStats[q]?.offRuckWon || 0);
                 value += won;
                 total += rucks;
             } else if (type === 'possession') {
-                const oppPoss = stats[q]?.oppPossessions || 0;
-                const pressures = stats[q]?.pressures || 0;
+                const oppPoss = manualStats[q]?.oppPossessions || 0;
+                const pressures = manualStats[q]?.pressures || 0;
                 value += pressures;
                 total += oppPoss;
             } else if (type === 'attack') {
-                const shots = stats[q]?.shotTaken || 0;
-                const score = stats[q]?.score || 0;
+                const shots = manualStats[q]?.shotTaken || 0;
+                const score = manualStats[q]?.score || 0;
                 value += score;
                 total += shots;
             } else if (type === 'puckouts') {
-                const tot = (stats[q]?.oppPuckout || 0) + (stats[q]?.ownPuckout || 0);
-                const won = (stats[q]?.oppPuckoutWon || 0) + (stats[q]?.ownPuckoutWon || 0);
+                const tot = (manualStats[q]?.oppPuckout || 0) + (manualStats[q]?.ownPuckout || 0);
+                const won = (manualStats[q]?.oppPuckoutWon || 0) + (manualStats[q]?.ownPuckoutWon || 0);
                 value += won;
                 total += tot;
             } else if (type === 'conversion') {
-                const entries = stats[q]?.ballInside65 || 0;
-                const shots = stats[q]?.shotTaken || 0;
+                const entries = manualStats[q]?.ballInside65 || 0;
+                const shots = manualStats[q]?.shotTaken || 0;
                 value += shots;
                 total += entries;
             } else if (type === 'efficiency') {
-                const shots = stats[q]?.shotTaken || 0;
-                const score = stats[q]?.score || 0;
+                const shots = manualStats[q]?.shotTaken || 0;
+                const score = manualStats[q]?.score || 0;
                 value += score;
                 total += shots;
             } else if (type === 'scoring') {
-                const shots = stats[q]?.shotTaken || 0;
-                const scores = stats[q]?.score || 0;
+                const shots = manualStats[q]?.shotTaken || 0;
+                const scores = manualStats[q]?.score || 0;
                 value += scores;
                 total += shots;
             } else if (type === 'freeRate') {
-                const frees = stats[q]?.freesAgainst || 0;
-                const pressures = stats[q]?.pressures || 0;
+                const frees = manualStats[q]?.freesAgainst || 0;
+                const pressures = manualStats[q]?.pressures || 0;
                 value += frees;
                 total += pressures;
             }
@@ -260,10 +269,10 @@ const DashboardView = () => {
     };
 
     const StatRow = ({ label, statId }) => {
-        const q1 = stats.q1[statId] || 0;
-        const q2 = stats.q2[statId] || 0;
-        const q3 = stats.q3[statId] || 0;
-        const q4 = stats.q4[statId] || 0;
+        const q1 = manualStats.q1[statId] || 0;
+        const q2 = manualStats.q2[statId] || 0;
+        const q3 = manualStats.q3[statId] || 0;
+        const q4 = manualStats.q4[statId] || 0;
         const total = q1 + q2 + q3 + q4;
 
         return (
@@ -286,8 +295,8 @@ const DashboardView = () => {
 
     const CalculatedRow = ({ label, numeratorId, denominatorId }) => {
         const getPctValue = (q) => {
-            const num = stats[q]?.[numeratorId] || 0;
-            const den = stats[q]?.[denominatorId] || 0;
+            const num = manualStats[q]?.[numeratorId] || 0;
+            const den = manualStats[q]?.[denominatorId] || 0;
             return den > 0 ? Math.round((num / den) * 100) : null;
         };
 
@@ -296,8 +305,8 @@ const DashboardView = () => {
         const q3Val = getPctValue('q3');
         const q4Val = getPctValue('q4');
 
-        const totalNum = (stats.q1?.[numeratorId] || 0) + (stats.q2?.[numeratorId] || 0) + (stats.q3?.[numeratorId] || 0) + (stats.q4?.[numeratorId] || 0);
-        const totalDen = (stats.q1?.[denominatorId] || 0) + (stats.q2?.[denominatorId] || 0) + (stats.q3?.[denominatorId] || 0) + (stats.q4?.[denominatorId] || 0);
+        const totalNum = (manualStats.q1?.[numeratorId] || 0) + (manualStats.q2?.[numeratorId] || 0) + (manualStats.q3?.[numeratorId] || 0) + (manualStats.q4?.[numeratorId] || 0);
+        const totalDen = (manualStats.q1?.[denominatorId] || 0) + (manualStats.q2?.[denominatorId] || 0) + (manualStats.q3?.[denominatorId] || 0) + (manualStats.q4?.[denominatorId] || 0);
         const totalVal = totalDen > 0 ? Math.round((totalNum / totalDen) * 100) : null;
 
         return (
@@ -375,7 +384,7 @@ const DashboardView = () => {
                 )}
 
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                    <h2 style={{ fontSize: '1.2rem', fontWeight: 'bold', color: isPdfMode ? '#000' : '#fff' }}>Match Dashboard</h2>
+                    <h2 style={{ fontSize: '1.2rem', fontWeight: 'bold', color: isPdfMode ? '#000' : '#fff' }}>Manual Match Dashboard</h2>
                 </div>
 
                 {/* Summary Cards */}
@@ -732,10 +741,10 @@ const DashboardView = () => {
                 fontSize: '1rem',
                 marginTop: '20px'
             }}>
-                {isPdfMode ? 'Generating PDF...' : 'Download Match PDF'}
+                {isPdfMode ? 'Generating PDF...' : 'Download Manual Match PDF'}
             </button>
         </div>
     );
 };
 
-export default DashboardView;
+export default ManualDashboardView;

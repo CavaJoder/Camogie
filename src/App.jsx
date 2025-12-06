@@ -14,6 +14,8 @@ import PuckoutsView from './views/PuckoutsView';
 import ScoresView from './views/ScoresView';
 import SquadsView from './views/SquadsView';
 import PlayerAnalysisView from './views/PlayerAnalysisView';
+import ManualEntryView from './views/ManualEntryView';
+import ManualDashboardView from './views/ManualDashboardView';
 
 function App() {
   const [activeTab, setActiveTab] = useState('record');
@@ -28,6 +30,8 @@ function App() {
       case 'scores': return <ScoresView />;
       case 'squads': return <SquadsView />;
       case 'playerAnalysis': return <PlayerAnalysisView />;
+      case 'manual': return <ManualEntryView />;
+      case 'manualDashboard': return <ManualDashboardView />;
       default: return <RecordView />;
     }
   };

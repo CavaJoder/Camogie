@@ -149,16 +149,74 @@ export const MatchProvider = ({ children }) => {
     setMatchInfo(prev => ({ ...prev, [field]: value }));
   };
 
+  // Manual Entry State
+  const [manualStats, setManualStats] = useState(() => {
+    const saved = localStorage.getItem('manual_stats');
+    return saved ? JSON.parse(saved) : { q1: {}, q2: {}, q3: {}, q4: {} };
+  });
+
+  const [manualPitchEvents, setManualPitchEvents] = useState(() => {
+    const saved = localStorage.getItem('manual_pitch_events');
+    return saved ? JSON.parse(saved) : {
+      q1: { scores: [], puckouts: [] },
+      q2: { scores: [], puckouts: [] },
+      q3: { scores: [], puckouts: [] },
+      q4: { scores: [], puckouts: [] }
+    };
+  });
+
+  // Persistence Effects for Manual Data
+  useEffect(() => {
+    localStorage.setItem('manual_stats', JSON.stringify(manualStats));
+  }, [manualStats]);
+
+  useEffect(() => {
+    localStorage.setItem('manual_pitch_events', JSON.stringify(manualPitchEvents));
+  }, [manualPitchEvents]);
+
+  // Manual Data Actions
+  const updateManualStat = (quarter, statId, value) => {
+    setManualStats(prev => ({
+      ...prev,
+      [quarter]: {
+        ...prev[quarter],
+        [statId]: parseInt(value) || 0
+      }
+    }));
+  };
+
+  const addManualPitchEvent = (quarter, type, event) => {
+    setManualPitchEvents(prev => ({
+      ...prev,
+      [quarter]: {
+        ...prev[quarter],
+        [type]: [...prev[quarter][type], event]
+      }
+    }));
+  };
+
   const resetMatch = () => {
     if (window.confirm('Are you sure you want to reset the match? All data will be lost.')) {
       setStats(INITIAL_STATS);
       setTimer({ minutes: 0, seconds: 0, isRunning: false, quarter: 'Q1' });
       setPitchStats({ scores: [], puckouts: [] });
       setMatchInfo(INITIAL_MATCH_INFO);
+
+      // Reset Manual Data too
+      setManualStats({ q1: {}, q2: {}, q3: {}, q4: {} });
+      setManualPitchEvents({
+        q1: { scores: [], puckouts: [] },
+        q2: { scores: [], puckouts: [] },
+        q3: { scores: [], puckouts: [] },
+        q4: { scores: [], puckouts: [] }
+      });
+
       localStorage.removeItem('match_stats');
       localStorage.removeItem('match_timer');
       localStorage.removeItem('match_pitch_stats');
       localStorage.removeItem('match_info');
+      localStorage.removeItem('manual_stats');
+      localStorage.removeItem('manual_pitch_events');
     }
   };
 
@@ -168,6 +226,8 @@ export const MatchProvider = ({ children }) => {
       matchInfo,
       stats,
       pitchStats,
+      manualStats,
+      manualPitchEvents,
       setMatchInfo,
       startTimer,
       pauseTimer,
@@ -175,7 +235,9 @@ export const MatchProvider = ({ children }) => {
       updateStat,
       addPitchEvent,
       updateMatchInfo,
-      resetMatch
+      resetMatch,
+      updateManualStat,
+      addManualPitchEvent
     }}>
       {children}
     </MatchContext.Provider>
