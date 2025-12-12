@@ -69,9 +69,18 @@ const DashboardView = () => {
                         </span>
                     </div>
 
+                    {/* Row 3: Turnovers */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.9rem' }}>
+                        <span style={{ color: '#b0b0b0' }}>Turnovers</span>
+                        <div style={{ display: 'flex', gap: '16px' }}>
+                            <span style={{ color: '#bb86fc' }}>{homeTeam}: {stats.turnoversA || 0}</span>
+                            <span style={{ color: '#03dac6' }}>{awayTeam}: {stats.turnoversB || 0}</span>
+                        </div>
+                    </div>
+
                     <div style={{ borderTop: '1px dashed #333', margin: '4px 0' }}></div>
 
-                    {/* Row 3: Ruck Win % */}
+                    {/* Row 4: Ruck Win % */}
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.9rem' }}>
                         <span style={{ color: '#b0b0b0' }}>Ruck Win %</span>
                         <div style={{ display: 'flex', gap: '16px' }}>

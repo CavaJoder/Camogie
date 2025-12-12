@@ -1,6 +1,6 @@
 import React from 'react';
 import { useMatch } from '../context/MatchContext';
-import { Play, Square, RotateCcw } from 'lucide-react';
+import { Play, Square, RotateCcw, Minus } from 'lucide-react';
 
 const RecordView = () => {
     const {
@@ -18,29 +18,59 @@ const RecordView = () => {
         return `${String(min).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
     };
 
-    const Button = ({ label, count, color, onClick, fullWidth }) => (
-        <button
-            onClick={onClick}
-            style={{
-                backgroundColor: color,
-                color: '#000',
-                border: 'none',
-                borderRadius: '8px',
-                padding: '20px',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                justifyContent: 'center',
-                width: fullWidth ? '100%' : 'auto',
-                height: '100px',
-                fontSize: '1rem',
-                fontWeight: 'bold',
-                boxShadow: '0 4px 6px rgba(0,0,0,0.3)'
-            }}
-        >
-            <span style={{ marginBottom: '8px', textAlign: 'center' }}>{label}</span>
-            <span style={{ fontSize: '1.5rem' }}>{count}</span>
-        </button>
+    const Button = ({ label, count, color, onIncrement, onDecrement, fullWidth }) => (
+        <div style={{
+            display: 'flex',
+            width: fullWidth ? '100%' : 'auto',
+            height: '100px',
+            borderRadius: '8px',
+            overflow: 'hidden',
+            boxShadow: '0 4px 6px rgba(0,0,0,0.3)'
+        }}>
+            {/* Increment Section (2/3 width) */}
+            <button
+                onClick={onIncrement}
+                style={{
+                    flex: 2,
+                    backgroundColor: color,
+                    color: '#000',
+                    border: 'none',
+                    padding: '10px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '1rem',
+                    fontWeight: 'bold',
+                    cursor: 'pointer',
+                    borderRight: '1px solid rgba(0,0,0,0.1)'
+                }}
+            >
+                <span style={{ marginBottom: '4px', textAlign: 'center', fontSize: '0.9rem' }}>{label}</span>
+                <span style={{ fontSize: '1.8rem' }}>{count}</span>
+            </button>
+
+            {/* Decrement Section (1/3 width) */}
+            <button
+                onClick={(e) => {
+                    e.stopPropagation();
+                    onDecrement();
+                }}
+                style={{
+                    flex: 1,
+                    backgroundColor: color,
+                    filter: 'brightness(0.9)',
+                    color: '#000',
+                    border: 'none',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    cursor: 'pointer'
+                }}
+            >
+                <Minus size={24} strokeWidth={3} />
+            </button>
+        </div>
     );
 
     return (
@@ -91,29 +121,51 @@ const RecordView = () => {
                         label={`${matchInfo.homeTeam} Poss`}
                         count={currentStats.possessionsA}
                         color={matchInfo.homeTeamColor}
-                        onClick={() => updateStat('possessionsA', 1)}
+                        onIncrement={() => updateStat('possessionsA', 1)}
+                        onDecrement={() => updateStat('possessionsA', -1)}
                     />
                     <Button
                         label={`${matchInfo.awayTeam} Press`}
                         count={currentStats.pressuresB}
                         color={matchInfo.awayTeamColor}
-                        onClick={() => updateStat('pressuresB', 1)}
+                        onIncrement={() => updateStat('pressuresB', 1)}
+                        onDecrement={() => updateStat('pressuresB', -1)}
                     />
                 </div>
 
                 {/* Row 2: Team B Poss | Team A Press */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
                     <Button
                         label={`${matchInfo.awayTeam} Poss`}
                         count={currentStats.possessionsB}
                         color={matchInfo.awayTeamColor}
-                        onClick={() => updateStat('possessionsB', 1)}
+                        onIncrement={() => updateStat('possessionsB', 1)}
+                        onDecrement={() => updateStat('possessionsB', -1)}
                     />
                     <Button
                         label={`${matchInfo.homeTeam} Press`}
                         count={currentStats.pressuresA}
                         color={matchInfo.homeTeamColor}
-                        onClick={() => updateStat('pressuresA', 1)}
+                        onIncrement={() => updateStat('pressuresA', 1)}
+                        onDecrement={() => updateStat('pressuresA', -1)}
+                    />
+                </div>
+
+                {/* Row 3: Turnovers */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                    <Button
+                        label={`${matchInfo.homeTeam} Turnovers`}
+                        count={currentStats.turnoversA}
+                        color={matchInfo.homeTeamColor}
+                        onIncrement={() => updateStat('turnoversA', 1)}
+                        onDecrement={() => updateStat('turnoversA', -1)}
+                    />
+                    <Button
+                        label={`${matchInfo.awayTeam} Turnovers`}
+                        count={currentStats.turnoversB}
+                        color={matchInfo.awayTeamColor}
+                        onIncrement={() => updateStat('turnoversB', 1)}
+                        onDecrement={() => updateStat('turnoversB', -1)}
                     />
                 </div>
             </div>
@@ -129,7 +181,8 @@ const RecordView = () => {
                         count={currentStats.rucksTotal}
                         color="#ffffff"
                         fullWidth
-                        onClick={() => updateStat('rucksTotal', 1)}
+                        onIncrement={() => updateStat('rucksTotal', 1)}
+                        onDecrement={() => updateStat('rucksTotal', -1)}
                     />
                 </div>
 
@@ -139,13 +192,15 @@ const RecordView = () => {
                         label={`${matchInfo.homeTeam} Won`}
                         count={currentStats.rucksWonA}
                         color={matchInfo.homeTeamColor}
-                        onClick={() => updateStat('rucksWonA', 1)}
+                        onIncrement={() => updateStat('rucksWonA', 1)}
+                        onDecrement={() => updateStat('rucksWonA', -1)}
                     />
                     <Button
                         label={`${matchInfo.awayTeam} Won`}
                         count={currentStats.rucksWonB}
                         color={matchInfo.awayTeamColor}
-                        onClick={() => updateStat('rucksWonB', 1)}
+                        onIncrement={() => updateStat('rucksWonB', 1)}
+                        onDecrement={() => updateStat('rucksWonB', -1)}
                     />
                 </div>
             </div>

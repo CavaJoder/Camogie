@@ -9,6 +9,8 @@ const INITIAL_STATS = {
   pressuresB: 0,
   possessionsB: 0,
   pressuresA: 0,
+  turnoversA: 0,
+  turnoversB: 0,
   rucksTotal: 0,
   rucksWonA: 0,
   rucksWonB: 0
