@@ -10,10 +10,10 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['icons/*.png'],
       manifest: {
-        name: 'Performance Analysis Tracker',
-        short_name: 'Perf Tracker',
+        name: 'Training Tracker',
+        short_name: 'Training Tracker',
         description: 'Track and analyze match performance statistics',
-        theme_color: '#bb86fc',
+        theme_color: '#4caf50',
         background_color: '#121212',
         display: 'standalone',
         orientation: 'portrait-primary',
