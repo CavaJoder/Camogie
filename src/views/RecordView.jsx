@@ -175,7 +175,7 @@ const RecordView = () => {
                     <Button
                         label="Total Rucks"
                         count={currentStats.rucksTotal}
-                        color="#ffffff"
+                        color="#e0b0ff"
                         fullWidth
                         onIncrement={() => updateStat('rucksTotal', 1)}
                         onDecrement={() => updateStat('rucksTotal', -1)}
