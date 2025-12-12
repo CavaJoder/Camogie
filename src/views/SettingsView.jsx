@@ -1,7 +1,7 @@
 import React from 'react';
 import { useMatch } from '../context/MatchContext';
 
-const InputGroup = ({ label, value, onChange, type = 'text', disabled }) => (
+const InputGroup = ({ label, value, onChange, type = 'text' }) => (
     <div style={{ marginBottom: '16px' }}>
         <label style={{ display: 'block', color: '#b0b0b0', marginBottom: '8px', fontSize: '0.9rem' }}>
             {label}
@@ -10,28 +10,25 @@ const InputGroup = ({ label, value, onChange, type = 'text', disabled }) => (
             type={type}
             value={value}
             onChange={(e) => onChange(e.target.value)}
-            disabled={disabled}
             style={{
                 width: '100%',
                 padding: type === 'color' ? '4px' : '12px',
                 height: type === 'color' ? '48px' : 'auto',
-                backgroundColor: type === 'color' ? value : (disabled ? '#121212' : '#1e1e1e'),
+                backgroundColor: type === 'color' ? value : '#1e1e1e',
                 border: '1px solid #333',
                 borderRadius: '6px',
-                color: disabled ? '#666' : 'white',
+                color: 'white',
                 fontSize: '1rem',
-                cursor: disabled ? 'not-allowed' : (type === 'color' ? 'pointer' : 'text')
+                cursor: type === 'color' ? 'pointer' : 'text'
             }}
         />
     </div>
 );
 
 const SettingsView = () => {
-    const { matchInfo, updateMatchInfo, timer, resetMatch } = useMatch();
-    const isMatchComplete = timer.quarter === 'FT';
+    const { matchInfo, updateMatchInfo, resetApp } = useMatch();
 
     const handleImageUpload = (e, field) => {
-        if (isMatchComplete) return;
         const file = e.target.files[0];
         if (file) {
             const reader = new FileReader();
@@ -43,174 +40,156 @@ const SettingsView = () => {
     };
 
     return (
-        <div style={{ padding: '16px', paddingBottom: '80px' }}>
-            <h2 style={{ fontSize: '1.2rem', marginBottom: '24px', color: '#bb86fc' }}>Match Configuration</h2>
+        <div style={{ padding: '16px', paddingBottom: '80px', maxWidth: '600px', margin: '0 auto' }}>
+            <h2 style={{ fontSize: '1.5rem', marginBottom: '24px', color: '#fff', fontWeight: 'bold' }}>Settings</h2>
 
-            {isMatchComplete && (
-                <div style={{
-                    backgroundColor: 'rgba(207, 102, 121, 0.1)',
-                    border: '1px solid #cf6679',
-                    color: '#cf6679',
-                    padding: '12px',
-                    borderRadius: '8px',
-                    marginBottom: '24px',
-                    fontSize: '0.9rem'
-                }}>
-                    Match is complete. Settings are locked until you reset the match.
-                </div>
-            )}
+            <div style={{ marginBottom: '32px' }}>
+                <h3 style={{ color: '#bb86fc', fontSize: '1.1rem', marginBottom: '16px', borderBottom: '1px solid #333', paddingBottom: '8px' }}>
+                    Team Configuration
+                </h3>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '24px' }}>
-                <div>
-                    <label style={{ display: 'block', color: '#b0b0b0', marginBottom: '8px' }}>Home Crest</label>
-                    <div style={{
-                        width: '150px',
-                        height: '150px',
-                        backgroundColor: isMatchComplete ? '#121212' : '#1e1e1e',
-                        border: '1px dashed #333',
-                        borderRadius: '8px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        overflow: 'hidden',
-                        position: 'relative',
-                        opacity: isMatchComplete ? 0.5 : 1
-                    }}>
-                        {matchInfo.homeCrest ? (
-                            <img src={matchInfo.homeCrest} alt="Home" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
-                        ) : (
-                            <span style={{ color: '#666' }}>Upload</span>
-                        )}
-                        <input
-                            type="file"
-                            accept="image/*"
-                            onChange={(e) => handleImageUpload(e, 'homeCrest')}
-                            disabled={isMatchComplete}
-                            style={{
-                                position: 'absolute',
-                                top: 0,
-                                left: 0,
-                                width: '100%',
-                                height: '100%',
-                                opacity: 0,
-                                cursor: isMatchComplete ? 'not-allowed' : 'pointer'
-                            }}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
+                    {/* Home Team */}
+                    <div>
+                        <div style={{ marginBottom: '12px', textAlign: 'center' }}>
+                            <div style={{
+                                width: '100px',
+                                height: '100px',
+                                margin: '0 auto',
+                                backgroundColor: '#1e1e1e',
+                                border: '1px dashed #333',
+                                borderRadius: '8px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                overflow: 'hidden',
+                                position: 'relative'
+                            }}>
+                                {matchInfo.homeCrest ? (
+                                    <img src={matchInfo.homeCrest} alt="Home" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                                ) : (
+                                    <span style={{ color: '#666', fontSize: '0.8rem' }}>Upload Crest</span>
+                                )}
+                                <input
+                                    type="file"
+                                    accept="image/*"
+                                    onChange={(e) => handleImageUpload(e, 'homeCrest')}
+                                    style={{
+                                        position: 'absolute',
+                                        top: 0,
+                                        left: 0,
+                                        width: '100%',
+                                        height: '100%',
+                                        opacity: 0,
+                                        cursor: 'pointer'
+                                    }}
+                                />
+                            </div>
+                        </div>
+                        <InputGroup
+                            label="Home Team"
+                            value={matchInfo.homeTeam}
+                            onChange={(v) => updateMatchInfo('homeTeam', v)}
+                        />
+                        <InputGroup
+                            label="Color"
+                            type="color"
+                            value={matchInfo.homeTeamColor || '#bb86fc'}
+                            onChange={(v) => updateMatchInfo('homeTeamColor', v)}
                         />
                     </div>
-                </div>
-                <div>
-                    <label style={{ display: 'block', color: '#b0b0b0', marginBottom: '8px' }}>Away Crest</label>
-                    <div style={{
-                        width: '150px',
-                        height: '150px',
-                        backgroundColor: isMatchComplete ? '#121212' : '#1e1e1e',
-                        border: '1px dashed #333',
-                        borderRadius: '8px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        overflow: 'hidden',
-                        position: 'relative',
-                        opacity: isMatchComplete ? 0.5 : 1
-                    }}>
-                        {matchInfo.awayCrest ? (
-                            <img src={matchInfo.awayCrest} alt="Away" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
-                        ) : (
-                            <span style={{ color: '#666' }}>Upload</span>
-                        )}
-                        <input
-                            type="file"
-                            accept="image/*"
-                            onChange={(e) => handleImageUpload(e, 'awayCrest')}
-                            disabled={isMatchComplete}
-                            style={{
-                                position: 'absolute',
-                                top: 0,
-                                left: 0,
-                                width: '100%',
-                                height: '100%',
-                                opacity: 0,
-                                cursor: isMatchComplete ? 'not-allowed' : 'pointer'
-                            }}
+
+                    {/* Away Team */}
+                    <div>
+                        <div style={{ marginBottom: '12px', textAlign: 'center' }}>
+                            <div style={{
+                                width: '100px',
+                                height: '100px',
+                                margin: '0 auto',
+                                backgroundColor: '#1e1e1e',
+                                border: '1px dashed #333',
+                                borderRadius: '8px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                overflow: 'hidden',
+                                position: 'relative'
+                            }}>
+                                {matchInfo.awayCrest ? (
+                                    <img src={matchInfo.awayCrest} alt="Away" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                                ) : (
+                                    <span style={{ color: '#666', fontSize: '0.8rem' }}>Upload Crest</span>
+                                )}
+                                <input
+                                    type="file"
+                                    accept="image/*"
+                                    onChange={(e) => handleImageUpload(e, 'awayCrest')}
+                                    style={{
+                                        position: 'absolute',
+                                        top: 0,
+                                        left: 0,
+                                        width: '100%',
+                                        height: '100%',
+                                        opacity: 0,
+                                        cursor: 'pointer'
+                                    }}
+                                />
+                            </div>
+                        </div>
+                        <InputGroup
+                            label="Away Team"
+                            value={matchInfo.awayTeam}
+                            onChange={(v) => updateMatchInfo('awayTeam', v)}
+                        />
+                        <InputGroup
+                            label="Color"
+                            type="color"
+                            value={matchInfo.awayTeamColor || '#03dac6'}
+                            onChange={(v) => updateMatchInfo('awayTeamColor', v)}
                         />
                     </div>
                 </div>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '24px' }}>
+            <div style={{ marginBottom: '40px' }}>
+                <h3 style={{ color: '#bb86fc', fontSize: '1.1rem', marginBottom: '16px', borderBottom: '1px solid #333', paddingBottom: '8px' }}>
+                    Default Match Info
+                </h3>
                 <InputGroup
-                    label="Home Team Color"
-                    type="color"
-                    value={matchInfo.homeTeamColor || '#bb86fc'}
-                    onChange={(v) => updateMatchInfo('homeTeamColor', v)}
-                    disabled={isMatchComplete}
+                    label="Competition"
+                    value={matchInfo.competition || ''}
+                    onChange={(v) => updateMatchInfo('competition', v)}
                 />
                 <InputGroup
-                    label="Away Team Color"
-                    type="color"
-                    value={matchInfo.awayTeamColor || '#bb86fc'}
-                    onChange={(v) => updateMatchInfo('awayTeamColor', v)}
-                    disabled={isMatchComplete}
+                    label="Venue"
+                    value={matchInfo.venue || ''}
+                    onChange={(v) => updateMatchInfo('venue', v)}
                 />
             </div>
 
-            <InputGroup
-                label="Home Team Name"
-                value={matchInfo.homeTeam}
-                onChange={(v) => updateMatchInfo('homeTeam', v)}
-                disabled={isMatchComplete}
-            />
-            <InputGroup
-                label="Away Team Name"
-                value={matchInfo.awayTeam}
-                onChange={(v) => updateMatchInfo('awayTeam', v)}
-                disabled={isMatchComplete}
-            />
-            <InputGroup
-                label="Date"
-                type="date"
-                value={matchInfo.date}
-                onChange={(v) => updateMatchInfo('date', v)}
-                disabled={isMatchComplete}
-            />
-            <InputGroup
-                label="Competition"
-                value={matchInfo.competition}
-                onChange={(v) => updateMatchInfo('competition', v)}
-                disabled={isMatchComplete}
-            />
-            <InputGroup
-                label="Venue"
-                value={matchInfo.venue}
-                onChange={(v) => updateMatchInfo('venue', v)}
-                disabled={isMatchComplete}
-            />
-
-            <button
-                onClick={() => {
-                    if (isMatchComplete) {
-                        if (window.confirm('Are you sure you want to reset the match? This will clear all data.')) {
-                            resetMatch();
-                        }
-                    } else {
-                        alert('Settings saved successfully!');
-                    }
-                }}
-                style={{
-                    width: '100%',
-                    backgroundColor: isMatchComplete ? '#cf6679' : '#bb86fc',
-                    color: 'black',
-                    padding: '16px',
-                    borderRadius: '8px',
-                    fontWeight: 'bold',
-                    fontSize: '1rem',
-                    marginTop: '20px',
-                    border: 'none',
-                    cursor: 'pointer'
-                }}
-            >
-                {isMatchComplete ? 'Reset Match' : 'Save Settings'}
-            </button>
+            <div style={{ borderTop: '1px solid #333', paddingTop: '24px' }}>
+                <h3 style={{ color: '#cf6679', fontSize: '1.1rem', marginBottom: '16px' }}>Danger Zone</h3>
+                <button
+                    onClick={resetApp}
+                    style={{
+                        width: '100%',
+                        backgroundColor: 'transparent',
+                        border: '1px solid #cf6679',
+                        color: '#cf6679',
+                        padding: '16px',
+                        borderRadius: '8px',
+                        fontWeight: 'bold',
+                        fontSize: '1rem',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s'
+                    }}
+                >
+                    Factory Reset App
+                </button>
+                <p style={{ color: '#666', fontSize: '0.8rem', marginTop: '8px', textAlign: 'center' }}>
+                    This will delete all match history and settings.
+                </p>
+            </div>
 
         </div>
     );

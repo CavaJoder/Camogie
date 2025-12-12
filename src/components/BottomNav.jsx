@@ -5,14 +5,7 @@ const BottomNav = ({ activeTab, onTabChange }) => {
     const tabs = [
         { id: 'record', label: 'Record', icon: ClipboardList },
         { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-        { id: 'player', label: 'Player', icon: User },
         { id: 'settings', label: 'Settings', icon: Settings },
-        // { id: 'puckouts', label: 'Puckouts', icon: Target },
-        // { id: 'scores', label: 'Scores', icon: Trophy },
-        { id: 'squads', label: 'Squads', icon: Users },
-        { id: 'playerAnalysis', label: 'Analysis', icon: BarChart3 },
-        { id: 'manual', label: 'Manual', icon: PenTool },
-        { id: 'manualDashboard', label: 'Man View', icon: LayoutDashboard },
     ];
 
     return (

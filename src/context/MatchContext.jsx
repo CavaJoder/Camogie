@@ -5,66 +5,59 @@ const MatchContext = createContext();
 export const useMatch = () => useContext(MatchContext);
 
 const INITIAL_STATS = {
-  q1: {}, q2: {}, q3: {}, q4: {}, ft: {}
+  possessionsA: 0,
+  pressuresB: 0,
+  possessionsB: 0,
+  pressuresA: 0,
+  rucksTotal: 0,
+  rucksWonA: 0,
+  rucksWonB: 0
 };
 
 const INITIAL_MATCH_INFO = {
-  homeTeam: '',
-  awayTeam: '',
-  date: new Date().toISOString().split('T')[0],
-  venue: '',
-  competition: '',
-  homeCrest: null,
-  awayCrest: null,
+  homeTeam: 'Team A',
+  awayTeam: 'Team B',
   homeTeamColor: '#bb86fc',
-  awayTeamColor: '#bb86fc'
+  awayTeamColor: '#03dac6'
 };
 
 export const MatchProvider = ({ children }) => {
-  // Timer State
-  const [timer, setTimer] = useState(() => {
-    const saved = localStorage.getItem('match_timer');
-    return saved ? JSON.parse(saved) : { minutes: 0, seconds: 0, isRunning: false, quarter: 'Q1' };
+  // --- State ---
+  const [matchNumber, setMatchNumber] = useState(() => {
+    const saved = localStorage.getItem('lite_match_number');
+    return saved ? parseInt(saved) : 1;
   });
 
-  // Match Info State
-  const [matchInfo, setMatchInfo] = useState(() => {
-    const saved = localStorage.getItem('match_info');
-    return saved ? JSON.parse(saved) : INITIAL_MATCH_INFO;
+  const [matchHistory, setMatchHistory] = useState(() => {
+    const saved = localStorage.getItem('lite_match_history');
+    return saved ? JSON.parse(saved) : [];
   });
 
-  // Stats State
-  const [stats, setStats] = useState(() => {
-    const saved = localStorage.getItem('match_stats');
+  const [currentStats, setCurrentStats] = useState(() => {
+    const saved = localStorage.getItem('lite_current_stats');
     return saved ? JSON.parse(saved) : INITIAL_STATS;
   });
 
-  // Pitch Stats State (Scores & Puckouts)
-  const [pitchStats, setPitchStats] = useState(() => {
-    const saved = localStorage.getItem('match_pitch_stats');
-    return saved ? JSON.parse(saved) : { scores: [], puckouts: [] };
+  const [timer, setTimer] = useState(() => {
+    const saved = localStorage.getItem('lite_timer');
+    return saved ? JSON.parse(saved) : { minutes: 0, seconds: 0, isRunning: false };
+  });
+
+  const [matchInfo, setMatchInfo] = useState(() => {
+    const saved = localStorage.getItem('lite_match_info');
+    return saved ? JSON.parse(saved) : INITIAL_MATCH_INFO;
   });
 
   const timerIntervalRef = useRef(null);
 
-  // Persistence Effects
-  useEffect(() => {
-    localStorage.setItem('match_timer', JSON.stringify(timer));
-  }, [timer]);
+  // --- Persistence ---
+  useEffect(() => { localStorage.setItem('lite_match_number', matchNumber); }, [matchNumber]);
+  useEffect(() => { localStorage.setItem('lite_match_history', JSON.stringify(matchHistory)); }, [matchHistory]);
+  useEffect(() => { localStorage.setItem('lite_current_stats', JSON.stringify(currentStats)); }, [currentStats]);
+  useEffect(() => { localStorage.setItem('lite_timer', JSON.stringify(timer)); }, [timer]);
+  useEffect(() => { localStorage.setItem('lite_match_info', JSON.stringify(matchInfo)); }, [matchInfo]);
 
-  useEffect(() => {
-    localStorage.setItem('match_info', JSON.stringify(matchInfo));
-  }, [matchInfo]);
-
-  useEffect(() => {
-    localStorage.setItem('match_stats', JSON.stringify(stats));
-  }, [stats]);
-
-  useEffect(() => {
-    localStorage.setItem('match_pitch_stats', JSON.stringify(pitchStats));
-  }, [pitchStats]);
-
-  // Timer Logic
+  // --- Timer Logic ---
   useEffect(() => {
     if (timer.isRunning) {
       timerIntervalRef.current = setInterval(() => {
@@ -82,66 +75,56 @@ export const MatchProvider = ({ children }) => {
     return () => clearInterval(timerIntervalRef.current);
   }, [timer.isRunning]);
 
-  // Actions
-  const startTimer = () => setTimer(prev => ({ ...prev, isRunning: true }));
-  const pauseTimer = () => setTimer(prev => ({ ...prev, isRunning: false }));
+  // --- Actions ---
 
-  const endQuarter = () => {
-    setTimer(prev => {
-      let nextQuarter = prev.quarter;
-      let shouldResetTime = false;
-      let shouldKeepRunning = false;
-
-      if (prev.quarter === 'Q1') {
-        nextQuarter = 'Q2';
-        shouldKeepRunning = true;
-      }
-      else if (prev.quarter === 'Q2') {
-        nextQuarter = 'Q3';
-        shouldResetTime = true;
-        shouldKeepRunning = false;
-      }
-      else if (prev.quarter === 'Q3') {
-        nextQuarter = 'Q4';
-        shouldKeepRunning = true;
-      }
-      else if (prev.quarter === 'Q4') {
-        nextQuarter = 'FT';
-        shouldKeepRunning = false;
-      }
-
-      return {
-        ...prev,
-        quarter: nextQuarter,
-        minutes: shouldResetTime ? 0 : prev.minutes,
-        seconds: shouldResetTime ? 0 : prev.seconds,
-        isRunning: shouldKeepRunning
-      };
-    });
+  const startMatch = () => {
+    setTimer(prev => ({ ...prev, isRunning: true }));
   };
 
-  const updateStat = (statId, delta) => {
-    if (timer.quarter === 'FT') return; // No updates after full time
+  const stopMatch = () => {
+    setTimer(prev => ({ ...prev, isRunning: false }));
 
-    setStats(prev => {
-      const currentQ = prev[timer.quarter.toLowerCase()] || {};
-      const currentVal = currentQ[statId] || 0;
-      const newVal = Math.max(0, currentVal + delta);
+    // Save to History
+    const newRecord = {
+      id: matchNumber,
+      date: new Date().toISOString(),
+      homeTeam: matchInfo.homeTeam,
+      awayTeam: matchInfo.awayTeam,
+      stats: { ...currentStats },
+      duration: `${String(timer.minutes).padStart(2, '0')}:${String(timer.seconds).padStart(2, '0')}`
+    };
 
-      return {
-        ...prev,
-        [timer.quarter.toLowerCase()]: {
-          ...currentQ,
-          [statId]: newVal
-        }
-      };
-    });
+    setMatchHistory(prev => [newRecord, ...prev]);
+    setMatchNumber(prev => prev + 1);
+
+    // Reset Current Stats & Timer
+    setCurrentStats(INITIAL_STATS);
+    setTimer({ minutes: 0, seconds: 0, isRunning: false });
   };
 
-  const addPitchEvent = (type, data) => {
-    setPitchStats(prev => ({
+  const resetCurrentStats = () => {
+    if (window.confirm('Reset current match stats?')) {
+      setCurrentStats(INITIAL_STATS);
+      setTimer({ minutes: 0, seconds: 0, isRunning: false });
+    }
+  };
+
+  const resetApp = () => {
+    if (window.confirm('RESET APP: This will delete all match history and settings. Are you sure?')) {
+      setMatchNumber(1);
+      setMatchHistory([]);
+      setCurrentStats(INITIAL_STATS);
+      setTimer({ minutes: 0, seconds: 0, isRunning: false });
+      setMatchInfo(INITIAL_MATCH_INFO);
+
+      localStorage.clear(); // Clear all storage
+    }
+  };
+
+  const updateStat = (key, delta) => {
+    setCurrentStats(prev => ({
       ...prev,
-      [type]: [...prev[type], { ...data, quarter: timer.quarter }]
+      [key]: Math.max(0, (prev[key] || 0) + delta)
     }));
   };
 
@@ -149,95 +132,19 @@ export const MatchProvider = ({ children }) => {
     setMatchInfo(prev => ({ ...prev, [field]: value }));
   };
 
-  // Manual Entry State
-  const [manualStats, setManualStats] = useState(() => {
-    const saved = localStorage.getItem('manual_stats');
-    return saved ? JSON.parse(saved) : { q1: {}, q2: {}, q3: {}, q4: {} };
-  });
-
-  const [manualPitchEvents, setManualPitchEvents] = useState(() => {
-    const saved = localStorage.getItem('manual_pitch_events');
-    return saved ? JSON.parse(saved) : {
-      q1: { scores: [], puckouts: [] },
-      q2: { scores: [], puckouts: [] },
-      q3: { scores: [], puckouts: [] },
-      q4: { scores: [], puckouts: [] }
-    };
-  });
-
-  // Persistence Effects for Manual Data
-  useEffect(() => {
-    localStorage.setItem('manual_stats', JSON.stringify(manualStats));
-  }, [manualStats]);
-
-  useEffect(() => {
-    localStorage.setItem('manual_pitch_events', JSON.stringify(manualPitchEvents));
-  }, [manualPitchEvents]);
-
-  // Manual Data Actions
-  const updateManualStat = (quarter, statId, value) => {
-    setManualStats(prev => ({
-      ...prev,
-      [quarter]: {
-        ...prev[quarter],
-        [statId]: parseInt(value) || 0
-      }
-    }));
-  };
-
-  const addManualPitchEvent = (quarter, type, event) => {
-    setManualPitchEvents(prev => ({
-      ...prev,
-      [quarter]: {
-        ...prev[quarter],
-        [type]: [...prev[quarter][type], event]
-      }
-    }));
-  };
-
-  const resetMatch = () => {
-    if (window.confirm('Are you sure you want to reset the match? All data will be lost.')) {
-      setStats(INITIAL_STATS);
-      setTimer({ minutes: 0, seconds: 0, isRunning: false, quarter: 'Q1' });
-      setPitchStats({ scores: [], puckouts: [] });
-      setMatchInfo(INITIAL_MATCH_INFO);
-
-      // Reset Manual Data too
-      setManualStats({ q1: {}, q2: {}, q3: {}, q4: {} });
-      setManualPitchEvents({
-        q1: { scores: [], puckouts: [] },
-        q2: { scores: [], puckouts: [] },
-        q3: { scores: [], puckouts: [] },
-        q4: { scores: [], puckouts: [] }
-      });
-
-      localStorage.removeItem('match_stats');
-      localStorage.removeItem('match_timer');
-      localStorage.removeItem('match_pitch_stats');
-      localStorage.removeItem('match_info');
-      localStorage.removeItem('manual_stats');
-      localStorage.removeItem('manual_pitch_events');
-    }
-  };
-
   return (
     <MatchContext.Provider value={{
+      matchNumber,
+      matchHistory,
+      currentStats,
       timer,
       matchInfo,
-      stats,
-      pitchStats,
-      manualStats,
-      manualPitchEvents,
-      setMatchInfo,
-      startTimer,
-      pauseTimer,
-      endQuarter,
+      startMatch,
+      stopMatch,
+      resetCurrentStats,
+      resetApp,
       updateStat,
-      addPitchEvent,
-      updateMatchInfo,
-      resetMatch,
-      updateManualStat,
-      addManualPitchEvent
+      updateMatchInfo
     }}>
       {children}
     </MatchContext.Provider>

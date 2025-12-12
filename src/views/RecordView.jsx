@@ -1,103 +1,155 @@
 import React from 'react';
 import { useMatch } from '../context/MatchContext';
-import StatButton from '../components/StatButton';
-
-import ScoresView from './ScoresView';
-import PuckoutsView from './PuckoutsView';
+import { Play, Square, RotateCcw } from 'lucide-react';
 
 const RecordView = () => {
-    const { stats, timer, updateStat } = useMatch();
+    const {
+        matchNumber,
+        timer,
+        currentStats,
+        matchInfo,
+        startMatch,
+        stopMatch,
+        resetCurrentStats,
+        updateStat
+    } = useMatch();
 
-    // Helper to get current count safely
-    const getCount = (id) => {
-        const currentQStats = stats[timer.quarter.toLowerCase()] || {};
-        return currentQStats[id] || 0;
+    const formatTime = (min, sec) => {
+        return `${String(min).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
     };
 
-    const categories = [
-        {
-            title: 'Possession & Pressure',
-            items: [
-                { id: 'oppPossessions', label: 'Opp Possessions', color: '#bb86fc' },
-                { id: 'pressures', label: 'Pressures', color: '#bb86fc' },
-                { id: 'freesAgainst', label: 'Frees Against', color: '#bb86fc' },
-                { id: 'turnovers', label: 'Turnovers', color: '#bb86fc' },
-            ]
-        },
-        {
-            title: 'Rucks',
-            items: [
-                { id: 'defRuck', label: 'Defensive Ruck', color: '#bb86fc' },
-                { id: 'defRuckWon', label: 'Def Ruck Won', color: '#4caf50' },
-                { id: 'midRuck', label: 'Middle Third Ruck', color: '#bb86fc' },
-                { id: 'midRuckWon', label: 'Mid Ruck Won', color: '#4caf50' },
-                { id: 'offRuck', label: 'Offensive Ruck', color: '#bb86fc' },
-                { id: 'offRuckWon', label: 'Off Ruck Won', color: '#4caf50' },
-            ]
-        },
-        {
-            title: 'Shots & Scores',
-            items: [
-                { id: 'ballInside65', label: 'Ball Inside 65', color: '#bb86fc' },
-                { id: 'shotTaken', label: 'Shot Taken', color: '#bb86fc' },
-                { id: 'score', label: 'Score', color: '#4caf50' },
-                { id: 'wide', label: 'Wide', color: '#cf6679' },
-                { id: 'short', label: 'Short', color: '#ff9800' },
-                { id: 'saved', label: 'Saved', color: '#ff9800' },
-                { id: 'freeWon', label: 'Free Won', color: '#4caf50' },
-                { id: '45Won', label: '45 Won', color: '#4caf50' },
-            ]
-        },
-        {
-            title: 'Puckouts',
-            items: [
-                { id: 'oppPuckout', label: 'Opp Puckout', color: '#bb86fc' },
-                { id: 'oppPuckoutWon', label: 'Opp Puckout Won', color: '#4caf50' },
-                { id: 'ownPuckout', label: 'Own Puckout', color: '#bb86fc' },
-                { id: 'ownPuckoutWon', label: 'Own Puckout Won', color: '#4caf50' },
-            ]
-        }
-    ];
+    const Button = ({ label, count, color, onClick, fullWidth }) => (
+        <button
+            onClick={onClick}
+            style={{
+                backgroundColor: color,
+                color: '#000',
+                border: 'none',
+                borderRadius: '8px',
+                padding: '20px',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: fullWidth ? '100%' : 'auto',
+                height: '100px',
+                fontSize: '1rem',
+                fontWeight: 'bold',
+                boxShadow: '0 4px 6px rgba(0,0,0,0.3)'
+            }}
+        >
+            <span style={{ marginBottom: '8px', textAlign: 'center' }}>{label}</span>
+            <span style={{ fontSize: '1.5rem' }}>{count}</span>
+        </button>
+    );
 
     return (
-        <div style={{ padding: '16px', paddingTop: '32px', paddingBottom: '80px' }}>
-            {categories.map((cat, index) => (
-                <div key={index} style={{ marginBottom: '24px' }}>
-                    <h3 style={{
-                        color: '#b0b0b0',
-                        fontSize: '0.9rem',
-                        marginBottom: '10px',
-                        textTransform: 'uppercase',
-                        letterSpacing: '1px'
-                    }}>
-                        {cat.title}
-                    </h3>
-                    <div style={{
-                        display: 'grid',
-                        gridTemplateColumns: '1fr 1fr',
-                        gap: '10px'
-                    }}>
-                        {cat.items.map(item => (
-                            <StatButton
-                                key={item.id}
-                                label={item.label}
-                                count={getCount(item.id)}
-                                color={item.color}
-                                onIncrement={() => updateStat(item.id, 1)}
-                                onDecrement={() => updateStat(item.id, -1)}
-                            />
-                        ))}
-                    </div>
+        <div style={{ padding: '16px', paddingBottom: '80px', maxWidth: '600px', margin: '0 auto' }}>
+
+            {/* Header: Match # and Timer */}
+            <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                backgroundColor: '#1e1e1e',
+                padding: '16px',
+                borderRadius: '12px',
+                marginBottom: '24px',
+                border: '1px solid #333'
+            }}>
+                <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#b0b0b0' }}>
+                    Match #{matchNumber}
                 </div>
-            ))}
+                <div style={{ fontSize: '2rem', fontWeight: 'bold', fontFamily: 'monospace', color: timer.isRunning ? '#03dac6' : '#fff' }}>
+                    {formatTime(timer.minutes, timer.seconds)}
+                </div>
+            </div>
 
-            <hr style={{ borderColor: '#333', margin: '32px 0' }} />
+            {/* Controls: Start, Stop, Reset */}
+            <div style={{ display: 'flex', gap: '12px', marginBottom: '32px' }}>
+                {!timer.isRunning ? (
+                    <button onClick={startMatch} style={{ flex: 1, backgroundColor: '#4caf50', color: 'white', border: 'none', padding: '16px', borderRadius: '8px', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                        <Play size={20} /> START
+                    </button>
+                ) : (
+                    <button onClick={stopMatch} style={{ flex: 1, backgroundColor: '#cf6679', color: 'white', border: 'none', padding: '16px', borderRadius: '8px', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                        <Square size={20} /> STOP
+                    </button>
+                )}
+                <button onClick={resetCurrentStats} style={{ backgroundColor: '#333', color: '#b0b0b0', border: 'none', padding: '16px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <RotateCcw size={20} />
+                </button>
+            </div>
 
-            <ScoresView />
+            {/* Possession & Pressure Section */}
+            <div style={{ marginBottom: '32px' }}>
+                <h3 style={{ color: '#b0b0b0', marginBottom: '16px', textTransform: 'uppercase', fontSize: '0.9rem', letterSpacing: '1px' }}>Possession & Pressure</h3>
 
-            <hr style={{ borderColor: '#333', margin: '32px 0' }} />
+                {/* Row 1: Team A Poss | Team B Press */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
+                    <Button
+                        label={`${matchInfo.homeTeam} Poss`}
+                        count={currentStats.possessionsA}
+                        color={matchInfo.homeTeamColor}
+                        onClick={() => updateStat('possessionsA', 1)}
+                    />
+                    <Button
+                        label={`${matchInfo.awayTeam} Press`}
+                        count={currentStats.pressuresB}
+                        color={matchInfo.awayTeamColor}
+                        onClick={() => updateStat('pressuresB', 1)}
+                    />
+                </div>
 
-            <PuckoutsView />
+                {/* Row 2: Team B Poss | Team A Press */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                    <Button
+                        label={`${matchInfo.awayTeam} Poss`}
+                        count={currentStats.possessionsB}
+                        color={matchInfo.awayTeamColor}
+                        onClick={() => updateStat('possessionsB', 1)}
+                    />
+                    <Button
+                        label={`${matchInfo.homeTeam} Press`}
+                        count={currentStats.pressuresA}
+                        color={matchInfo.homeTeamColor}
+                        onClick={() => updateStat('pressuresA', 1)}
+                    />
+                </div>
+            </div>
+
+            {/* Rucks Section */}
+            <div>
+                <h3 style={{ color: '#b0b0b0', marginBottom: '16px', textTransform: 'uppercase', fontSize: '0.9rem', letterSpacing: '1px' }}>Rucks</h3>
+
+                {/* Total Rucks (Centered) */}
+                <div style={{ marginBottom: '12px' }}>
+                    <Button
+                        label="Total Rucks"
+                        count={currentStats.rucksTotal}
+                        color="#ffffff"
+                        fullWidth
+                        onClick={() => updateStat('rucksTotal', 1)}
+                    />
+                </div>
+
+                {/* Team A Won | Team B Won */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                    <Button
+                        label={`${matchInfo.homeTeam} Won`}
+                        count={currentStats.rucksWonA}
+                        color={matchInfo.homeTeamColor}
+                        onClick={() => updateStat('rucksWonA', 1)}
+                    />
+                    <Button
+                        label={`${matchInfo.awayTeam} Won`}
+                        count={currentStats.rucksWonB}
+                        color={matchInfo.awayTeamColor}
+                        onClick={() => updateStat('rucksWonB', 1)}
+                    />
+                </div>
+            </div>
+
         </div>
     );
 };
