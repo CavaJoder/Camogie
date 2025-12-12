@@ -111,12 +111,12 @@ const RecordView = () => {
                 </button>
             </div>
 
-            {/* Possession & Pressure Section */}
+            {/* Possession & Pressure & Turnovers Section */}
             <div style={{ marginBottom: '32px' }}>
-                <h3 style={{ color: '#b0b0b0', marginBottom: '16px', textTransform: 'uppercase', fontSize: '0.9rem', letterSpacing: '1px' }}>Possession & Pressure</h3>
+                <h3 style={{ color: '#b0b0b0', marginBottom: '16px', textTransform: 'uppercase', fontSize: '0.9rem', letterSpacing: '1px' }}>Possession, Pressure & Turnovers</h3>
 
-                {/* Row 1: Team A Poss | Team B Press */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
+                {/* Row 1: Team A Poss | Team B Press | Team B Turnovers */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px', marginBottom: '12px' }}>
                     <Button
                         label={`${matchInfo.homeTeam} Poss`}
                         count={currentStats.possessionsA}
@@ -131,10 +131,17 @@ const RecordView = () => {
                         onIncrement={() => updateStat('pressuresB', 1)}
                         onDecrement={() => updateStat('pressuresB', -1)}
                     />
+                    <Button
+                        label={`${matchInfo.awayTeam} Turn`}
+                        count={currentStats.turnoversB}
+                        color={matchInfo.awayTeamColor}
+                        onIncrement={() => updateStat('turnoversB', 1)}
+                        onDecrement={() => updateStat('turnoversB', -1)}
+                    />
                 </div>
 
-                {/* Row 2: Team B Poss | Team A Press */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
+                {/* Row 2: Team B Poss | Team A Press | Team A Turnovers */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px' }}>
                     <Button
                         label={`${matchInfo.awayTeam} Poss`}
                         count={currentStats.possessionsB}
@@ -149,23 +156,12 @@ const RecordView = () => {
                         onIncrement={() => updateStat('pressuresA', 1)}
                         onDecrement={() => updateStat('pressuresA', -1)}
                     />
-                </div>
-
-                {/* Row 3: Turnovers */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                     <Button
-                        label={`${matchInfo.homeTeam} Turnovers`}
+                        label={`${matchInfo.homeTeam} Turn`}
                         count={currentStats.turnoversA}
                         color={matchInfo.homeTeamColor}
                         onIncrement={() => updateStat('turnoversA', 1)}
                         onDecrement={() => updateStat('turnoversA', -1)}
-                    />
-                    <Button
-                        label={`${matchInfo.awayTeam} Turnovers`}
-                        count={currentStats.turnoversB}
-                        color={matchInfo.awayTeamColor}
-                        onIncrement={() => updateStat('turnoversB', 1)}
-                        onDecrement={() => updateStat('turnoversB', -1)}
                     />
                 </div>
             </div>
