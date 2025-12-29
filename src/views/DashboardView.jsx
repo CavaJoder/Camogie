@@ -830,7 +830,7 @@ const DashboardView = () => {
                                 textAlign: 'center'
                             }}>
                                 <h4 style={{ color: isPdfMode ? '#000' : '#03dac6', marginBottom: '10px', borderBottom: isPdfMode ? '1px solid #ccc' : '1px solid #444', paddingBottom: '5px', textTransform: 'uppercase', letterSpacing: '1px', fontSize: '0.9rem' }}>KPI: Pressure Efficiency</h4>
-                                <p style={{ margin: '0 0 10px 0' }}><strong>What it measures:</strong> The percentage of opposition possessions met with an active "Pressure" (tackle, hook, block, or forced error).</p>
+                                <p style={{ margin: '0 0 10px 0' }}><strong>What it measures:</strong> The percentage of opposition possessions met with an active "Pressure" (tackle, hook, block, contact or close contact forcing them to make a decision under pressure).</p>
 
                                 <div style={{ marginTop: '15px' }}>
                                     <strong>Why it matters:</strong>
@@ -870,25 +870,21 @@ const DashboardView = () => {
                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '30px' }}>
                             {/* Hero Metric: Shot Attempts */}
                             <div style={{ textAlign: 'center' }}>
-                                <div style={{ fontSize: '0.9rem', color: isPdfMode ? '#666' : '#b0b0b0', textTransform: 'uppercase', fontWeight: 'bold' }}>Territorial Effectiveness</div>
+                                <div style={{ fontSize: '0.9rem', color: isPdfMode ? '#666' : '#b0b0b0', textTransform: 'uppercase', fontWeight: 'bold' }}>SHOOTING %</div>
                                 <div style={{ fontSize: '11.25rem', fontWeight: 'bold', color: getPctColor(territorialEffectiveness), lineHeight: '1.1' }}>
                                     {territorialEffectiveness}%
                                 </div>
-                                <div style={{ fontSize: '0.8rem', color: isPdfMode ? '#888' : '#666', marginTop: '5px' }}>Shots per 65m Entry</div>
+                                <div style={{ fontSize: '0.8rem', color: isPdfMode ? '#888' : '#666', marginTop: '5px' }}>Shots Taken (Entries {totalAttacks} / Shots {totalShots})</div>
 
                                 {/* Sub-Hero Row: Efficiency & Frees Won -> Scaled to 3.5rem */}
                                 <div style={{ display: 'flex', justifyContent: 'center', gap: '30px', marginTop: '15px' }}>
                                     <div style={{ textAlign: 'center' }}>
-                                        <div style={{ fontSize: '0.75rem', color: isPdfMode ? '#666' : '#b0b0b0', textTransform: 'uppercase' }}>Shot Efficiency</div>
+                                        <div style={{ fontSize: '0.75rem', color: isPdfMode ? '#666' : '#b0b0b0', textTransform: 'uppercase' }}>Scoring Efficiency</div>
                                         <div style={{ fontSize: '3.5rem', fontWeight: 'bold', color: getPctColor(shotEfficiency) }}>{shotEfficiency}%</div>
                                     </div>
                                     <div style={{ textAlign: 'center' }}>
-                                        <div style={{ fontSize: '0.75rem', color: isPdfMode ? '#666' : '#b0b0b0', textTransform: 'uppercase' }}>Frees Won</div>
-                                        <div style={{ fontSize: '3.5rem', fontWeight: 'bold', color: isPdfMode ? '#000' : '#fff' }}>{totalFreesWon}</div>
-                                    </div>
-                                    <div style={{ textAlign: 'center' }}>
-                                        <div style={{ fontSize: '0.75rem', color: isPdfMode ? '#666' : '#b0b0b0', textTransform: 'uppercase' }}>Scores from Frees</div>
-                                        <div style={{ fontSize: '3.5rem', fontWeight: 'bold', color: '#4caf50' }}>{sumStats('scoreFree')}</div>
+                                        <div style={{ fontSize: '0.75rem', color: isPdfMode ? '#666' : '#b0b0b0', textTransform: 'uppercase' }}>Attacking Free Won</div>
+                                        <div style={{ fontSize: '3.5rem', fontWeight: 'bold', color: isPdfMode ? '#000' : '#fff' }}>{sumStats('freeWon')}</div>
                                     </div>
                                 </div>
                             </div>
