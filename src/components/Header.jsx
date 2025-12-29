@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { useMatch } from '../context/MatchContext';
 
 const Header = () => {
-    const { timer, matchInfo, startTimer, pauseTimer, endQuarter, resetMatch } = useMatch();
+    const { timer, matchInfo, pitchStats, startTimer, pauseTimer, endQuarter, resetMatch, isAdmin, isLive } = useMatch();
 
     const formatTime = (min, sec) => {
         return `${min.toString().padStart(2, '0')}:${sec.toString().padStart(2, '0')}`;
@@ -61,7 +61,27 @@ const Header = () => {
                         letterSpacing: '1px',
                         margin: 0
                     }}>
-                        {matchInfo.homeTeam || 'HOME'} vs {matchInfo.awayTeam || 'AWAY'}
+                        {matchInfo.homeTeam || 'HOME'} <span style={{ color: '#4caf50', margin: '0 8px' }}>
+                            {/* Home Score Calc */}
+                            {(() => {
+                                const homeScores = pitchStats.scores.filter(s => s.team === 'home');
+                                const goals = homeScores.filter(s => s.type === 'goal' || s.type === 'penalty').length;
+                                const points = homeScores.filter(s => s.type === 'point' || s.type === 'free' || s.type === '45').length;
+                                const total = (goals * 3) + points;
+                                return `${goals}-${points} (${total})`;
+                            })()}
+                        </span>
+                        vs
+                        <span style={{ color: '#4caf50', margin: '0 8px' }}>
+                            {/* Away Score Calc */}
+                            {(() => {
+                                const awayScores = pitchStats.scores.filter(s => s.team === 'away');
+                                const goals = awayScores.filter(s => s.type === 'goal' || s.type === 'penalty').length;
+                                const points = awayScores.filter(s => s.type === 'point' || s.type === 'free' || s.type === '45').length;
+                                const total = (goals * 3) + points;
+                                return `${goals}-${points} (${total})`;
+                            })()}
+                        </span>{matchInfo.awayTeam || 'AWAY'}
                     </h1>
                     {matchInfo.awayCrest && (
                         <img src={matchInfo.awayCrest} alt="Away" style={{ width: '40px', height: '40px', objectFit: 'contain' }} />
@@ -103,62 +123,64 @@ const Header = () => {
                 </span>
             </div>
 
-            {/* Controls */}
-            <div style={{ display: 'flex', gap: '10px' }}>
-                {!timer.isRunning && timer.quarter !== 'FT' && (
-                    <button onClick={startTimer} style={{
-                        backgroundColor: '#4caf50',
-                        color: 'black',
+            {/* Controls - Only visible to Admin or if not Live */}
+            {(!isLive || isAdmin) && (
+                <div style={{ display: 'flex', gap: '10px' }}>
+                    {!timer.isRunning && timer.quarter !== 'FT' && (
+                        <button onClick={startTimer} style={{
+                            backgroundColor: '#4caf50',
+                            color: 'black',
+                            padding: '8px 24px',
+                            borderRadius: '20px',
+                            fontWeight: '600',
+                            minWidth: '80px'
+                        }}>
+                            Start
+                        </button>
+                    )}
+
+                    {timer.isRunning && (
+                        <button onClick={pauseTimer} style={{
+                            backgroundColor: '#ff9800',
+                            color: 'black',
+                            padding: '8px 24px',
+                            borderRadius: '20px',
+                            fontWeight: '600',
+                            minWidth: '80px'
+                        }}>
+                            Pause
+                        </button>
+                    )}
+
+                    {timer.quarter !== 'FT' && (
+                        <button onClick={endQuarter} style={{
+                            backgroundColor: '#bb86fc',
+                            color: 'black',
+                            padding: '8px 24px',
+                            borderRadius: '20px',
+                            fontWeight: '600',
+                            minWidth: '80px'
+                        }}>
+                            End Q
+                        </button>
+                    )}
+
+                    <button onClick={() => {
+                        if (window.confirm('Are you sure you want to reset the match? This cannot be undone.')) {
+                            resetMatch();
+                        }
+                    }} style={{
+                        backgroundColor: '#333',
+                        color: 'white',
                         padding: '8px 24px',
                         borderRadius: '20px',
                         fontWeight: '600',
                         minWidth: '80px'
                     }}>
-                        Start
+                        Reset
                     </button>
-                )}
-
-                {timer.isRunning && (
-                    <button onClick={pauseTimer} style={{
-                        backgroundColor: '#ff9800',
-                        color: 'black',
-                        padding: '8px 24px',
-                        borderRadius: '20px',
-                        fontWeight: '600',
-                        minWidth: '80px'
-                    }}>
-                        Pause
-                    </button>
-                )}
-
-                {timer.quarter !== 'FT' && (
-                    <button onClick={endQuarter} style={{
-                        backgroundColor: '#bb86fc',
-                        color: 'black',
-                        padding: '8px 24px',
-                        borderRadius: '20px',
-                        fontWeight: '600',
-                        minWidth: '80px'
-                    }}>
-                        End Q
-                    </button>
-                )}
-
-                <button onClick={() => {
-                    if (window.confirm('Are you sure you want to reset the match? This cannot be undone.')) {
-                        resetMatch();
-                    }
-                }} style={{
-                    backgroundColor: '#333',
-                    color: 'white',
-                    padding: '8px 24px',
-                    borderRadius: '20px',
-                    fontWeight: '600',
-                    minWidth: '80px'
-                }}>
-                    Reset
-                </button>
-            </div>
+                </div>
+            )}
         </header>
     );
 };

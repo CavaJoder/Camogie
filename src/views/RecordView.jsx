@@ -6,7 +6,9 @@ import ScoresView from './ScoresView';
 import PuckoutsView from './PuckoutsView';
 
 const RecordView = () => {
-    const { stats, timer, updateStat } = useMatch();
+    const { stats, timer, updateStat, addPitchEvent, matchInfo } = useMatch();
+    const [freeLocation, setFreeLocation] = React.useState('Middle');
+    const [freeType, setFreeType] = React.useState('Other');
 
     // Helper to get current count safely
     const getCount = (id) => {
@@ -44,8 +46,16 @@ const RecordView = () => {
                 { id: 'wide', label: 'Wide', color: '#cf6679' },
                 { id: 'short', label: 'Short', color: '#ff9800' },
                 { id: 'saved', label: 'Saved', color: '#ff9800' },
+                { id: 'offPost', label: 'Off Post', color: '#ff9800' },
                 { id: 'freeWon', label: 'Free Won', color: '#4caf50' },
+                { id: 'scoreFree', label: 'Score from Free', color: '#4caf50' },
                 { id: '45Won', label: '45 Won', color: '#4caf50' },
+                { id: 'score45', label: 'Score 45', color: '#ff9800' },
+                { id: 'penaltyWon', label: 'Penalty Won', color: '#4caf50' },
+                { id: 'penalty', label: 'Score from Penalty', color: '#9c27b0' },
+                { id: 'shot65', label: 'Shot from > 65', color: '#bb86fc' },
+                { id: 'wide65', label: 'Wide from > 65', color: '#cf6679' },
+                { id: 'point65', label: 'Point from > 65', color: '#4caf50' },
             ]
         },
         {
@@ -90,6 +100,84 @@ const RecordView = () => {
                     </div>
                 </div>
             ))}
+
+            <hr style={{ borderColor: '#333', margin: '32px 0' }} />
+
+            <div style={{ marginBottom: '24px' }}>
+                <h3 style={{
+                    color: '#b0b0b0',
+                    fontSize: '0.9rem',
+                    marginBottom: '10px',
+                    textTransform: 'uppercase',
+                    letterSpacing: '1px'
+                }}>
+                    Total Frees
+                </h3>
+
+                {/* Shared Multi-dropdown controls */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '15px' }}>
+                    <div>
+                        <label style={{ display: 'block', color: '#888', fontSize: '0.7rem', marginBottom: '4px' }}>Location</label>
+                        <select
+                            value={freeLocation}
+                            onChange={(e) => setFreeLocation(e.target.value)}
+                            style={{ width: '100%', padding: '8px', backgroundColor: '#1e1e1e', color: '#fff', border: '1px solid #333', borderRadius: '4px', fontSize: '0.9rem' }}
+                        >
+                            <option>Defence</option>
+                            <option>Middle</option>
+                            <option>Offence</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label style={{ display: 'block', color: '#888', fontSize: '0.7rem', marginBottom: '4px' }}>Free Type</label>
+                        <select
+                            value={freeType}
+                            onChange={(e) => setFreeType(e.target.value)}
+                            style={{ width: '100%', padding: '8px', backgroundColor: '#1e1e1e', color: '#fff', border: '1px solid #333', borderRadius: '4px', fontSize: '0.9rem' }}
+                        >
+                            {['Other', 'Dropped Hurley', 'Trip', 'Catch', 'Hold', 'Strike', 'Charge', 'Equipment', 'Obstruct', 'Shoulder', 'Dissent', 'Persistant Fouling', 'Pick off Ground', 'Touch on Ground', 'Throw', 'Throw Foul', 'Steps', 'Over carry', 'Chop', 'Hold Hurley', 'Push', 'Lying on Ball', 'Sandwich', 'Dangerous Play'].map(t => (
+                                <option key={t} value={t}>{t}</option>
+                            ))}
+                        </select>
+                    </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                    {/* Team A (Home) */}
+                    <div style={{ padding: '10px', backgroundColor: '#121212', borderRadius: '8px', border: '1px solid #333' }}>
+                        <div style={{ color: matchInfo.homeTeamColor || '#bb86fc', fontSize: '0.8rem', fontWeight: 'bold', marginBottom: '8px', textAlign: 'center' }}>
+                            {matchInfo.homeTeam || 'Home'}
+                        </div>
+                        <StatButton
+                            label="Free Conceded"
+                            count={getCount('freeConcededHome')}
+                            color="#cf6679"
+                            onIncrement={() => {
+                                updateStat('freeConcededHome', 1);
+                                addPitchEvent('frees', { team: 'home', location: freeLocation, type: freeType });
+                            }}
+                            onDecrement={() => updateStat('freeConcededHome', -1)}
+                        />
+                    </div>
+
+                    {/* Team B (Away) */}
+                    <div style={{ padding: '10px', backgroundColor: '#121212', borderRadius: '8px', border: '1px solid #333' }}>
+                        <div style={{ color: matchInfo.awayTeamColor || '#bb86fc', fontSize: '0.8rem', fontWeight: 'bold', marginBottom: '8px', textAlign: 'center' }}>
+                            {matchInfo.awayTeam || 'Away'}
+                        </div>
+                        <StatButton
+                            label="Free Conceded"
+                            count={getCount('freeConcededAway')}
+                            color="#cf6679"
+                            onIncrement={() => {
+                                updateStat('freeConcededAway', 1);
+                                addPitchEvent('frees', { team: 'away', location: freeLocation, type: freeType });
+                            }}
+                            onDecrement={() => updateStat('freeConcededAway', -1)}
+                        />
+                    </div>
+                </div>
+            </div>
 
             <hr style={{ borderColor: '#333', margin: '32px 0' }} />
 

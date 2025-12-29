@@ -7,12 +7,14 @@ import PitchSummary from '../components/PitchSummary';
 const DashboardView = () => {
     const { stats, timer, matchInfo, pitchStats } = useMatch();
     const [isPdfMode, setIsPdfMode] = useState(false);
+    const [showPitchesInPdf, setShowPitchesInPdf] = useState(true);
+    const [showFreesInPdf, setShowFreesInPdf] = useState(true);
 
     // Filter Pitch Stats by Half
-    const firstHalfScores = pitchStats.scores.filter(s => ['Q1', 'Q2'].includes(s.quarter));
-    const secondHalfScores = pitchStats.scores.filter(s => ['Q3', 'Q4', 'FT'].includes(s.quarter));
-    const firstHalfPuckouts = pitchStats.puckouts.filter(p => ['Q1', 'Q2'].includes(p.quarter));
-    const secondHalfPuckouts = pitchStats.puckouts.filter(p => ['Q3', 'Q4', 'FT'].includes(p.quarter));
+    const firstHalfScores = (pitchStats?.scores || []).filter(s => ['Q1', 'Q2'].includes(s.quarter));
+    const secondHalfScores = (pitchStats?.scores || []).filter(s => ['Q3', 'Q4', 'FT'].includes(s.quarter));
+    const firstHalfPuckouts = (pitchStats?.puckouts || []).filter(p => ['Q1', 'Q2'].includes(p.quarter));
+    const secondHalfPuckouts = (pitchStats?.puckouts || []).filter(p => ['Q3', 'Q4', 'FT'].includes(p.quarter));
 
     // Helper to sum stats across specific quarters
     const sumStats = (statId, quarters = ['q1', 'q2', 'q3', 'q4']) => {
@@ -20,6 +22,17 @@ const DashboardView = () => {
             return total + (stats[q]?.[statId] || 0);
         }, 0);
     };
+
+    const getTeamScore = (team) => {
+        const scores = (pitchStats?.scores || []).filter(s => s.team === team);
+        const goals = scores.filter(s => s.type === 'goal' || s.type === 'penalty').length;
+        const points = scores.filter(s => s.type === 'point' || s.type === 'free' || s.type === '45').length;
+        const total = (goals * 3) + points;
+        return { goals, points, total };
+    };
+
+    const homeScore = getTeamScore('home');
+    const awayScore = getTeamScore('away');
 
     // Helper to determine color based on quarter status
     const getQuarterColor = (q) => {
@@ -86,6 +99,20 @@ const DashboardView = () => {
         { name: 'Won', value: sumStats('ownPuckoutWon'), color: '#4caf50' },
         { name: 'Lost', value: Math.max(0, sumStats('ownPuckout') - sumStats('ownPuckoutWon')), color: '#cf6679' },
     ].filter(d => d.value > 0);
+
+    // Free Type Breakdown
+    const freeTypeCounts = (pitchStats?.frees || []).reduce((acc, free) => {
+        const type = free.type || 'Other';
+        acc[type] = (acc[type] || 0) + 1;
+        return acc;
+    }, {});
+
+    const COLORS = ['#bb86fc', '#03dac6', '#4caf50', '#ff9800', '#cf6679', '#018786', '#03a9f4', '#e91e63', '#9c27b0', '#673ab7', '#3f51b5', '#2196f3', '#00bcd4', '#009688', '#8bc34a', '#cddc39', '#ffeb3b', '#ffc107', '#ff5722', '#795548'];
+    const freeTypeData = Object.keys(freeTypeCounts).map((type, index) => ({
+        name: type,
+        value: freeTypeCounts[type],
+        color: COLORS[index % COLORS.length]
+    })).sort((a, b) => b.value - a.value);
 
     const oppPuckoutData = [
         { name: 'Won', value: sumStats('oppPuckoutWon'), color: '#03dac6' },
@@ -231,13 +258,13 @@ const DashboardView = () => {
                     const pctColor = total > 0 ? getPctColor(pct) : 'inherit';
                     const isHigh = total > 0 && pct >= 60;
 
-                    const showSeparatorBefore = row.isHalf && row.label === '1st Half';
+                    const showSeparatorBefore = (row.isHalf && row.label === '1st Half') || (row.label === 'Q1:' && idx > 0);
+                    const showSeparatorUnderQ4 = row.label === 'Q4:';
                     const showSeparatorBeforeTotal = row.isTotal;
 
                     return (
                         <React.Fragment key={idx}>
                             {showSeparatorBefore && <div style={{ borderTop: '1px dashed #333', margin: '8px 0' }} />}
-                            {showSeparatorBeforeTotal && <div style={{ borderTop: '1px solid #333', margin: '8px 0' }} />}
                             <div className={rowClass} style={{
                                 display: 'flex',
                                 justifyContent: 'space-between',
@@ -252,6 +279,8 @@ const DashboardView = () => {
                                     <span style={{ width: '50px', textAlign: 'right', opacity: 0.8, color: row.isHalf ? (isPdfMode ? '#000' : '#fff') : 'inherit' }}>({value}/{total})</span>
                                 </div>
                             </div>
+                            {showSeparatorUnderQ4 && <div style={{ borderTop: '1px solid #333', margin: '8px 0' }} />}
+                            {showSeparatorBeforeTotal && idx < rows.length - 1 && <div style={{ borderTop: '1px solid #333', margin: '8px 0' }} />}
                         </React.Fragment>
                     );
                 })}
@@ -260,10 +289,10 @@ const DashboardView = () => {
     };
 
     const StatRow = ({ label, statId }) => {
-        const q1 = stats.q1[statId] || 0;
-        const q2 = stats.q2[statId] || 0;
-        const q3 = stats.q3[statId] || 0;
-        const q4 = stats.q4[statId] || 0;
+        const q1 = stats.q1?.[statId] || 0;
+        const q2 = stats.q2?.[statId] || 0;
+        const q3 = stats.q3?.[statId] || 0;
+        const q4 = stats.q4?.[statId] || 0;
         const total = q1 + q2 + q3 + q4;
 
         return (
@@ -274,7 +303,7 @@ const DashboardView = () => {
                 borderBottom: '1px solid #333',
                 fontSize: '0.9rem'
             }}>
-                <span className="stat-label" style={{ color: '#fff' }}>{label}</span>
+                <span className="stat-label" style={{ color: isPdfMode ? '#000' : '#fff' }}>{label}</span>
                 <span className="stat-value" style={{ textAlign: 'center', color: getQuarterColor('Q1') }}>{q1}</span>
                 <span className="stat-value" style={{ textAlign: 'center', color: getQuarterColor('Q2') }}>{q2}</span>
                 <span className="stat-value" style={{ textAlign: 'center', color: getQuarterColor('Q3') }}>{q3}</span>
@@ -309,7 +338,7 @@ const DashboardView = () => {
                 fontSize: '0.9rem',
                 backgroundColor: 'rgba(255,255,255,0.02)'
             }}>
-                <span className="stat-label" style={{ color: '#b0b0b0', paddingLeft: '16px', fontStyle: 'italic' }}>{label}</span>
+                <span className="stat-label" style={{ color: isPdfMode ? '#333' : '#b0b0b0', paddingLeft: '16px', fontStyle: 'italic' }}>{label}</span>
                 <span className="stat-value" style={{ textAlign: 'center', color: getPctColor(q1Val) }}>{q1Val !== null ? q1Val + '%' : '-'}</span>
                 <span className="stat-value" style={{ textAlign: 'center', color: getPctColor(q2Val) }}>{q2Val !== null ? q2Val + '%' : '-'}</span>
                 <span className="stat-value" style={{ textAlign: 'center', color: getPctColor(q3Val) }}>{q3Val !== null ? q3Val + '%' : '-'}</span>
@@ -348,6 +377,7 @@ const DashboardView = () => {
     const totalPossessions = sumStats('oppPossessions');
     const totalPressures = sumStats('pressures');
     const totalFreesAgainst = sumStats('freesAgainst');
+    const totalFreesWon = sumStats('freesWon');
     const totalTurnovers = sumStats('turnovers');
     const pressureEfficiency = totalPossessions > 0 ? Math.round((totalPressures / totalPossessions) * 100) : 0;
     const freeRate = totalPressures > 0 ? Math.round((totalFreesAgainst / totalPressures) * 100) : 0;
@@ -358,6 +388,26 @@ const DashboardView = () => {
     const rucksWon = sumStats('defRuckWon') + sumStats('midRuckWon') + sumStats('offRuckWon');
     const ruckEfficiency = totalRucks > 0 ? Math.round((rucksWon / totalRucks) * 100) : 0;
 
+    const defRuckTotal = sumStats('defRuck');
+    const defRuckWonValue = sumStats('defRuckWon');
+    const defRuckPct = defRuckTotal > 0 ? Math.round((defRuckWonValue / defRuckTotal) * 100) : 0;
+
+    const midRuckTotal = sumStats('midRuck');
+    const midRuckWonValue = sumStats('midRuckWon');
+    const midRuckPct = midRuckTotal > 0 ? Math.round((midRuckWonValue / midRuckTotal) * 100) : 0;
+
+    const offRuckTotal = sumStats('offRuck');
+    const offRuckWonValue = sumStats('offRuckWon');
+    const offRuckPct = offRuckTotal > 0 ? Math.round((offRuckWonValue / offRuckTotal) * 100) : 0;
+
+    // Puckout Analysis Hero Stats
+    const ownPuckoutTotal = sumStats('ownPuckout');
+    const ownPuckoutWon = sumStats('ownPuckoutWon');
+    const ownPuckoutWonPct = ownPuckoutTotal > 0 ? Math.round((ownPuckoutWon / ownPuckoutTotal) * 100) : 0;
+    const oppPuckoutTotal = sumStats('oppPuckout');
+    const oppPuckoutWon = sumStats('oppPuckoutWon');
+    const oppPuckoutWonPct = oppPuckoutTotal > 0 ? Math.round((oppPuckoutWon / oppPuckoutTotal) * 100) : 0;
+
     return (
         <div style={{ padding: '20px', paddingBottom: '80px' }}>
             <div id="printableStats" className={isPdfMode ? 'pdf-mode' : ''}>
@@ -367,20 +417,28 @@ const DashboardView = () => {
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '2px solid #333', paddingBottom: '20px', marginBottom: '20px' }}>
                         {matchInfo.homeCrest ? <img src={matchInfo.homeCrest} style={{ width: '80px', height: '80px', objectFit: 'contain' }} alt="Home Crest" /> : <div></div>}
                         <div style={{ textAlign: 'center' }}>
-                            <h1 style={{ fontSize: '24px', fontWeight: 'bold', margin: '0', color: '#000' }}>{matchInfo.homeTeam || 'HOME'} vs {matchInfo.awayTeam || 'AWAY'}</h1>
-                            <p style={{ color: '#666', margin: '5px 0' }}>{[formatDate(matchInfo.date), matchInfo.competition, matchInfo.venue].filter(Boolean).join(' • ')}</p>
+                            <h1 style={{ fontSize: '32px', fontWeight: 'bold', margin: '0 0 5px 0', color: '#000' }}>
+                                {matchInfo.homeTeam || 'HOME'} vs {matchInfo.awayTeam || 'AWAY'}
+                            </h1>
+                            <div style={{ fontSize: '20px', fontWeight: 'bold', color: '#4caf50', marginBottom: '8px' }}>
+                                {homeScore.goals}-{homeScore.points} ({homeScore.total})
+                                <span style={{ margin: '0 15px', color: '#666', fontWeight: 'normal' }}> — </span>
+                                {awayScore.goals}-{awayScore.points} ({awayScore.total})
+                            </div>
+                            <p style={{ color: '#666', margin: '0' }}>{[formatDate(matchInfo.date), matchInfo.competition, matchInfo.venue].filter(Boolean).join(' • ')}</p>
                         </div>
                         {matchInfo.awayCrest ? <img src={matchInfo.awayCrest} style={{ width: '80px', height: '80px', objectFit: 'contain' }} alt="Away Crest" /> : <div></div>}
                     </div>
                 )}
 
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                    <h2 style={{ fontSize: '1.2rem', fontWeight: 'bold', color: isPdfMode ? '#000' : '#fff' }}>Match Dashboard</h2>
+                    <h2 style={{ fontSize: '1.8rem', fontWeight: 'bold', color: isPdfMode ? '#000' : '#fff' }}>Match Dashboard</h2>
                 </div>
 
                 {/* Summary Cards */}
                 <div className="summary-cards-container">
                     <SummaryCard title="Pressures (Won/Total)" type="possession" />
+
                     <SummaryCard title="Rucks (Won/Total)" type="rucks" />
                     <SummaryCard title="Puckouts (Won/Total)" type="puckouts" />
                     <SummaryCard title="Shot Attempts (Entries to Shots)" type="conversion" />
@@ -389,7 +447,13 @@ const DashboardView = () => {
                 </div>
 
                 {/* Detailed Statistics */}
-                <h2 className="detailed-stats-header" style={{ fontSize: '1.2rem', margin: '24px 0 16px', color: '#bb86fc' }}>Detailed Statistics</h2>
+                <h2 className="detailed-stats-header" style={{
+                    fontSize: '1.8rem',
+                    fontWeight: 'bold',
+                    color: isPdfMode ? '#000' : '#bb86fc',
+                    marginBottom: '20px',
+                    textAlign: isPdfMode ? 'center' : 'left'
+                }}>Detailed Statistics</h2>
 
                 <div style={{ marginBottom: '24px' }}>
                     <h3 style={{ borderBottom: '1px solid #333', paddingBottom: '8px', marginBottom: '8px', color: '#03dac6' }}>PUCKOUTS</h3>
@@ -438,156 +502,639 @@ const DashboardView = () => {
                     <StatRow label="Wides" statId="wide" />
                     <StatRow label="Short" statId="short" />
                     <StatRow label="Saved" statId="saved" />
-                    <StatRow label="Frees Won" statId="freeWon" />
+                    <StatRow label="Off Post" statId="offPost" />
+                    <StatRow label="Frees Won Insid" statId="freeWon" />
                     <StatRow label="45s Won" statId="45Won" />
+                    <StatRow label="Penalty Won" statId="penaltyWon" />
+                    <StatRow label="Score from Free" statId="scoreFree" />
+                    <StatRow label="Score from Penalty" statId="penalty" />
+                    <StatRow label="Score 45" statId="score45" />
+                    <StatRow label="Shot from > 65" statId="shot65" />
+                    <StatRow label="Wide from > 65" statId="wide65" />
+                    <StatRow label="Point from > 65" statId="point65" />
                 </div>
 
-                {/* Visual Analysis Section - PDF Only */}
-                {isPdfMode && (
-                    <div style={{ marginTop: '40px', pageBreakBefore: 'always' }}>
-                        <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#000', marginBottom: '20px', textAlign: 'center' }}>Visual Match Report</h2>
-
-                        {/* Shot Analysis */}
-                        <div className="chart-container" style={{
-                            marginBottom: '24px',
-                            backgroundColor: '#f5f5f5',
-                            padding: '16px',
-                            borderRadius: '8px',
-                            color: '#333',
-                            pageBreakInside: 'avoid'
-                        }}>
-                            <h3 style={{ fontSize: '1rem', marginBottom: '10px', textAlign: 'center' }}>Shot Analysis</h3>
-                            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '10px' }}>
-                                <PieChart width={400} height={300}>
-                                    <Pie
-                                        data={shotData}
-                                        cx="50%"
-                                        cy="50%"
-                                        innerRadius={60}
-                                        outerRadius={80}
-                                        paddingAngle={5}
-                                        dataKey="value"
-                                        isAnimationActive={false}
-                                        label={renderCustomLabel}
-                                        labelLine={true}
-                                    >
-                                        {shotData.map((entry, index) => (
-                                            <Cell key={`cell-${index}`} fill={entry.color} />
-                                        ))}
-                                    </Pie>
-                                    <Legend layout="horizontal" verticalAlign="bottom" iconSize={10} wrapperStyle={{ fontSize: '12px', color: '#333' }} />
-                                </PieChart>
+                {(!isPdfMode || showFreesInPdf) && (
+                    <div className="chart-container" style={{
+                        marginBottom: '40px',
+                        backgroundColor: isPdfMode ? '#f5f5f5' : '#1e1e1e',
+                        padding: '30px',
+                        borderRadius: '12px',
+                        border: isPdfMode ? '1px solid #ccc' : '1px solid #333',
+                        pageBreakInside: 'avoid',
+                        pageBreakBefore: isPdfMode ? 'always' : 'auto'
+                    }}>
+                        <h3 style={{ fontSize: '1.2rem', marginBottom: '25px', color: isPdfMode ? '#000' : '#bb86fc', textAlign: 'center', textTransform: 'uppercase', letterSpacing: '1px' }}>Frees Analysis</h3>
+                        <div style={{ display: 'flex', justifyContent: 'center', gap: '20px', width: '100%', borderBottom: isPdfMode ? '1px solid #ddd' : '1px solid #333', paddingBottom: '20px' }}>
+                            <div style={{ textAlign: 'center', flex: 1 }}>
+                                <div style={{ fontSize: '0.8rem', color: isPdfMode ? '#666' : '#b0b0b0', textTransform: 'uppercase' }}>{matchInfo.homeTeam || 'Home'} Conceded</div>
+                                <div style={{ fontSize: '1.8rem', fontWeight: 'bold', color: isPdfMode ? '#000' : '#fff' }}>{sumStats('freeConcededHome')}</div>
                             </div>
-                            <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
-                                <KPICard title="Total Shots" value={totalShots} color="#333" bgColor="#fff" titleColor="#666" />
-                                <KPICard title="Scores" value={totalScores} color="#4caf50" bgColor="#fff" titleColor="#666" />
-                                <KPICard title="Efficiency" value={`${shotEfficiency}%`} color="#333" bgColor="#fff" titleColor="#666" />
-                                <KPICard title="Territorial" value={`${territorialEffectiveness}%`} sub="Shots/Entries" color="#333" bgColor="#fff" titleColor="#666" />
+                            <div style={{ borderLeft: isPdfMode ? '1px solid #ddd' : '1px solid #333' }}></div>
+                            <div style={{ textAlign: 'center', flex: 1 }}>
+                                <div style={{ fontSize: '0.8rem', color: isPdfMode ? '#666' : '#b0b0b0', textTransform: 'uppercase' }}>{matchInfo.awayTeam || 'Away'} Conceded</div>
+                                <div style={{ fontSize: '1.8rem', fontWeight: 'bold', color: isPdfMode ? '#000' : '#fff' }}>{sumStats('freeConcededAway')}</div>
                             </div>
                         </div>
 
-                        {/* Pressure Analysis */}
-                        <div className="chart-container" style={{
-                            marginTop: '60px',
-                            marginBottom: '24px',
-                            backgroundColor: '#f5f5f5',
-                            padding: '16px',
-                            borderRadius: '8px',
-                            color: '#333',
-                            pageBreakInside: 'avoid',
-                            pageBreakBefore: 'always'
-                        }}>
-                            <h3 style={{ fontSize: '1rem', marginBottom: '10px', textAlign: 'center' }}>Pressure Analysis</h3>
-                            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '10px' }}>
-                                <BarChart width={500} height={300} data={pressureBarData}>
-                                    <CartesianGrid strokeDasharray="3 3" stroke="#ccc" />
-                                    <XAxis dataKey="name" stroke="#333" />
-                                    <YAxis stroke="#333" />
-                                    <Legend wrapperStyle={{ color: '#333' }} />
-                                    <Bar dataKey="Possessions" fill="#bb86fc" isAnimationActive={false} label={{ position: 'top', fill: '#333', fontSize: 12 }} />
-                                    <Bar dataKey="Pressures" fill="#4caf50" isAnimationActive={false} label={{ position: 'top', fill: '#333', fontSize: 12 }} />
-                                </BarChart>
+                        {freeTypeData.length > 0 && (
+                            <div style={{ marginTop: '30px', marginBottom: '10px' }}>
+                                <h4 style={{ color: isPdfMode ? '#333' : '#b0b0b0', textAlign: 'center', fontSize: '0.9rem', marginBottom: '15px' }}>Breakdown by Foul Type</h4>
+                                <div style={{ height: '300px', width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                                    {isPdfMode ? (
+                                        <PieChart width={500} height={300}>
+                                            <Pie
+                                                data={freeTypeData}
+                                                cx="50%"
+                                                cy="50%"
+                                                innerRadius={60}
+                                                outerRadius={80}
+                                                paddingAngle={5}
+                                                dataKey="value"
+                                                isAnimationActive={false}
+                                                label={({ name, value }) => `${name}: ${value}`}
+                                            >
+                                                {freeTypeData.map((entry, index) => (
+                                                    <Cell key={`cell-${index}`} fill={entry.color} />
+                                                ))}
+                                            </Pie>
+                                            <Legend wrapperStyle={{ color: '#000', fontSize: '12px' }} />
+                                        </PieChart>
+                                    ) : (
+                                        <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+                                            <PieChart>
+                                                <Pie
+                                                    data={freeTypeData}
+                                                    cx="50%"
+                                                    cy="50%"
+                                                    innerRadius={60}
+                                                    outerRadius={80}
+                                                    paddingAngle={5}
+                                                    dataKey="value"
+                                                    isAnimationActive={false}
+                                                    label={({ name, value }) => `${name}: ${value}`}
+                                                >
+                                                    {freeTypeData.map((entry, index) => (
+                                                        <Cell key={`cell-${index}`} fill={entry.color} />
+                                                    ))}
+                                                </Pie>
+                                                <Tooltip contentStyle={{ backgroundColor: '#333', border: 'none', color: '#fff' }} />
+                                                <Legend wrapperStyle={{ fontSize: '12px' }} />
+                                            </PieChart>
+                                        </ResponsiveContainer>
+                                    )}
+                                </div>
                             </div>
-                            <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
-                                <KPICard title="Pressures" value={totalPressures} color="#333" bgColor="#fff" titleColor="#666" />
-                                <KPICard title="Turnovers" value={totalTurnovers} color="#4caf50" bgColor="#fff" titleColor="#666" />
-                                <KPICard title="Efficiency" value={`${pressureEfficiency}%`} sub="Press/Poss" color="#333" bgColor="#fff" titleColor="#666" />
-                                <KPICard title="Success Rate" value={`${successRate}%`} sub="Turn/Press" color="#333" bgColor="#fff" titleColor="#666" />
+                        )}
+
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginTop: '30px' }}>
+                            <div style={{ backgroundColor: isPdfMode ? '#fff' : '#252525', padding: '15px', borderRadius: '8px', border: isPdfMode ? '1px solid #eee' : '1px solid #333' }}>
+                                <h4 style={{ color: matchInfo.homeTeamColor || '#bb86fc', fontSize: '0.8rem', marginBottom: '10px', textTransform: 'uppercase' }}>{matchInfo.homeTeam || 'Home'} Fouls by Zone</h4>
+                                {['Defence', 'Middle', 'Offence'].map(loc => {
+                                    const count = (pitchStats?.frees || []).filter(f => f.team === 'home' && f.location === loc).length;
+                                    return (
+                                        <div key={loc} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', color: isPdfMode ? '#333' : '#b0b0b0', marginBottom: '4px' }}>
+                                            <span>{loc}:</span>
+                                            <span>{count}</span>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                            <div style={{ backgroundColor: isPdfMode ? '#fff' : '#252525', padding: '15px', borderRadius: '8px', border: isPdfMode ? '1px solid #eee' : '1px solid #333' }}>
+                                <h4 style={{ color: matchInfo.awayTeamColor || '#03dac6', fontSize: '0.8rem', marginBottom: '10px', textTransform: 'uppercase' }}>{matchInfo.awayTeam || 'Away'} Fouls by Zone</h4>
+                                {['Defence', 'Middle', 'Offence'].map(loc => {
+                                    const count = (pitchStats?.frees || []).filter(f => f.team === 'away' && f.location === loc).length;
+                                    return (
+                                        <div key={loc} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', color: isPdfMode ? '#333' : '#b0b0b0', marginBottom: '4px' }}>
+                                            <span>{loc}:</span>
+                                            <span>{count}</span>
+                                        </div>
+                                    );
+                                })}
                             </div>
                         </div>
 
-                        {/* Ruck Analysis */}
-                        <div className="chart-container" style={{
-                            marginTop: '60px',
-                            marginBottom: '24px',
-                            backgroundColor: '#f5f5f5',
-                            padding: '16px',
-                            borderRadius: '8px',
-                            color: '#333',
+                        {/* KPI Guide */}
+                        <div style={{
+                            marginTop: '30px',
+                            padding: '20px',
+                            backgroundColor: isPdfMode ? '#f9f9f9' : '#252525',
+                            borderRadius: '10px',
+                            border: isPdfMode ? '1px solid #ddd' : '1px solid #333',
+                            fontSize: '0.85rem',
+                            color: isPdfMode ? '#333' : '#e0e0e0',
+                            lineHeight: '1.6',
                             pageBreakInside: 'avoid',
-                            pageBreakBefore: 'always'
+                            width: '100%',
+                            maxWidth: '100%',
+                            textAlign: 'center'
                         }}>
-                            <h3 style={{ fontSize: '1rem', marginBottom: '10px', textAlign: 'center' }}>Ruck Analysis</h3>
-                            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '10px' }}>
-                                <BarChart width={500} height={300} data={ruckBarData}>
-                                    <CartesianGrid strokeDasharray="3 3" stroke="#ccc" />
-                                    <XAxis dataKey="name" stroke="#333" />
-                                    <YAxis stroke="#333" />
-                                    <Legend wrapperStyle={{ color: '#333' }} />
-                                    <Bar dataKey="Total" fill="#bb86fc" isAnimationActive={false} label={{ position: 'top', fill: '#333', fontSize: 12 }} />
-                                    <Bar dataKey="Won" fill="#00c853" isAnimationActive={false} label={{ position: 'top', fill: '#333', fontSize: 12 }} />
-                                </BarChart>
+                            <h4 style={{ color: isPdfMode ? '#000' : '#bb86fc', marginBottom: '10px', borderBottom: isPdfMode ? '1px solid #ccc' : '1px solid #444', paddingBottom: '5px', textTransform: 'uppercase', letterSpacing: '1px', fontSize: '0.9rem' }}>KPI: Frees Analysis (Discipline & Defensive Quality)</h4>
+                            <p style={{ margin: '0 0 10px 0' }}><strong>What it measures:</strong> The volume and location of fouls conceded, indicating defensive discipline and the quality of the tackle.</p>
+
+                            <div style={{ marginTop: '15px' }}>
+                                <strong>Why it matters:</strong>
+                                <ul style={{ paddingLeft: '0', listStyle: 'none', margin: '5px 0' }}>
+                                    <li><strong>Discipline Under Pressure:</strong> Conceding frees in the scoring zone hands the opposition "easy" points.</li>
+                                    <li><strong>Quality of Tackle:</strong> High free counts often indicate being a "half-step" behind the play.</li>
+                                </ul>
                             </div>
-                            <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
-                                <KPICard title="Total Rucks" value={totalRucks} color="#333" bgColor="#fff" titleColor="#666" />
-                                <KPICard title="Rucks Won" value={rucksWon} color="#00c853" bgColor="#fff" titleColor="#666" />
-                                <KPICard title="Efficiency" value={`${ruckEfficiency}%`} color="#333" bgColor="#fff" titleColor="#666" />
+
+                            <div style={{ marginTop: '15px', backgroundColor: isPdfMode ? '#fff' : '#1e1e1e', padding: '12px', borderRadius: '6px', border: isPdfMode ? '1px solid #eee' : '1px solid #333' }}>
+                                <strong>How to read it:</strong>
+                                <ul style={{ paddingLeft: '0', listStyle: 'none', margin: '5px 0' }}>
+                                    <li><strong>Low Foul Count (&lt;10 per game):</strong> High defensive discipline and excellent tackling technique.</li>
+                                    <li><strong>High Foul Count (&gt;15 per game):</strong> Defensive panic or poor positioning.</li>
+                                </ul>
                             </div>
                         </div>
+                    </div >
+                )
+                }
 
-                        {/* Zone Ruck Analysis (New) */}
-                        <div className="chart-container" style={{
-                            marginTop: '60px',
-                            marginBottom: '24px',
-                            backgroundColor: '#f5f5f5',
-                            padding: '16px',
-                            borderRadius: '8px',
-                            color: '#333',
-                            pageBreakInside: 'avoid',
-                            pageBreakBefore: 'always'
-                        }}>
-                            <h3 style={{ fontSize: '1rem', marginBottom: '10px', textAlign: 'center' }}>Ruck Analysis by Zone</h3>
-                            <div style={{ display: 'flex', justifyContent: 'center' }}>
-                                <BarChart width={600} height={350} data={zoneRuckData}>
-                                    <CartesianGrid strokeDasharray="3 3" stroke="#ccc" />
-                                    <XAxis dataKey="name" stroke="#333" />
-                                    <YAxis stroke="#333" />
-                                    <Legend wrapperStyle={{ color: '#333' }} />
-                                    <Bar dataKey="defWon" stackId="def" fill="#4caf50" name="Def Won" isAnimationActive={false} />
-                                    <Bar dataKey="defLost" stackId="def" fill="#cf6679" name="Def Lost" isAnimationActive={false} />
-                                    <Bar dataKey="midWon" stackId="mid" fill="#4caf50" name="Mid Won" isAnimationActive={false} />
-                                    <Bar dataKey="midLost" stackId="mid" fill="#cf6679" name="Mid Lost" isAnimationActive={false} />
-                                    <Bar dataKey="offWon" stackId="off" fill="#4caf50" name="Off Won" isAnimationActive={false} />
-                                    <Bar dataKey="offLost" stackId="off" fill="#cf6679" name="Off Lost" isAnimationActive={false} />
-                                </BarChart>
+                {/* PDF Pitch Toggle */}
+                {!isPdfMode && (
+                    <div style={{ display: 'flex', gap: '20px', alignItems: 'center', justifyContent: 'center', marginBottom: '30px' }}>
+                        <div style={{ color: isPdfMode ? '#000' : '#fff', fontWeight: 'bold' }}>PDF Content Options:</div>
+                        <div style={{ display: 'flex', gap: '20px' }}>
+                            <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', backgroundColor: isPdfMode ? '#f0f0f0' : '#1e1e1e', padding: '10px 15px', borderRadius: '8px', border: isPdfMode ? '1px solid #ccc' : '1px solid #333' }}>
+                                <input
+                                    type="checkbox"
+                                    name="showPitches"
+                                    checked={showPitchesInPdf}
+                                    onChange={(e) => setShowPitchesInPdf(e.target.checked)}
+                                    style={{ transform: 'scale(1.2)', cursor: 'pointer' }}
+                                />
+                                <span style={{ color: isPdfMode ? '#000' : '#fff', fontSize: '0.9rem' }}>Include Pitch Maps</span>
+                            </label>
+                            <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', backgroundColor: isPdfMode ? '#f0f0f0' : '#1e1e1e', padding: '10px 15px', borderRadius: '8px', border: isPdfMode ? '1px solid #ccc' : '1px solid #333' }}>
+                                <input
+                                    type="checkbox"
+                                    name="showFrees"
+                                    checked={showFreesInPdf}
+                                    onChange={(e) => setShowFreesInPdf(e.target.checked)}
+                                    style={{ transform: 'scale(1.2)', cursor: 'pointer' }}
+                                />
+                                <span style={{ color: isPdfMode ? '#000' : '#fff', fontSize: '0.9rem' }}>Include Frees Analysis</span>
+                            </label>
+                        </div>
+                    </div>
+                )}
+
+                {/* Pitch Score Maps - Visible based on toggle/mode */}
+                {
+                    (!isPdfMode || showPitchesInPdf) && (
+                        <>
+                            <div style={{ marginTop: '40px', pageBreakInside: 'avoid', pageBreakBefore: isPdfMode ? 'always' : 'auto' }}>
+                                <h2 style={{ fontSize: '1.8rem', fontWeight: 'bold', color: isPdfMode ? '#000' : '#bb86fc', marginBottom: '20px', textAlign: 'center' }}>Pitch Maps - 1st Half</h2>
+                                <div style={{ display: 'grid', gridTemplateColumns: isPdfMode ? '1fr 1fr' : '1fr', gap: '20px' }}>
+                                    <div style={{ backgroundColor: isPdfMode ? 'transparent' : '#1e1e1e', padding: '10px', borderRadius: '8px', border: isPdfMode ? 'none' : '1px solid #333' }}>
+                                        <h3 style={{ textAlign: 'center', fontSize: '0.9rem', marginBottom: '10px', color: isPdfMode ? '#000' : '#03dac6' }}>HOME: {matchInfo.homeTeam} Scores</h3>
+                                        <PitchSummary data={firstHalfScores.filter(s => s.team === 'home')} type="scores" />
+                                    </div>
+                                    <div style={{ backgroundColor: isPdfMode ? 'transparent' : '#1e1e1e', padding: '10px', borderRadius: '8px', border: isPdfMode ? 'none' : '1px solid #333' }}>
+                                        <h3 style={{ textAlign: 'center', fontSize: '0.9rem', marginBottom: '10px', color: isPdfMode ? '#000' : '#03dac6' }}>AWAY: {matchInfo.awayTeam} Scores</h3>
+                                        <PitchSummary data={firstHalfScores.filter(s => s.team === 'away')} type="scores" />
+                                    </div>
+                                </div>
                             </div>
+
+                            <div style={{ marginTop: '40px', pageBreakInside: 'avoid', pageBreakBefore: isPdfMode ? 'always' : 'auto' }}>
+                                <h2 style={{ fontSize: '1.8rem', fontWeight: 'bold', color: isPdfMode ? '#000' : '#bb86fc', marginBottom: '20px', textAlign: 'center' }}>Pitch Maps - 2nd Half</h2>
+                                <div style={{ display: 'grid', gridTemplateColumns: isPdfMode ? '1fr 1fr' : '1fr', gap: '20px' }}>
+                                    <div style={{ backgroundColor: isPdfMode ? 'transparent' : '#1e1e1e', padding: '10px', borderRadius: '8px', border: isPdfMode ? 'none' : '1px solid #333' }}>
+                                        <h3 style={{ textAlign: 'center', fontSize: '0.9rem', marginBottom: '10px', color: isPdfMode ? '#000' : '#03dac6' }}>HOME: {matchInfo.homeTeam} Scores</h3>
+                                        <PitchSummary data={secondHalfScores.filter(s => s.team === 'home')} type="scores" />
+                                    </div>
+                                    <div style={{ backgroundColor: isPdfMode ? 'transparent' : '#1e1e1e', padding: '10px', borderRadius: '8px', border: isPdfMode ? 'none' : '1px solid #333' }}>
+                                        <h3 style={{ textAlign: 'center', fontSize: '0.9rem', marginBottom: '10px', color: isPdfMode ? '#000' : '#03dac6' }}>AWAY: {matchInfo.awayTeam} Scores</h3>
+                                        <PitchSummary data={secondHalfScores.filter(s => s.team === 'away')} type="scores" />
+                                    </div>
+                                </div>
+                            </div>
+                        </>
+                    )
+                }
+
+                {/* Visual Analysis Section - Now visible in Dashboard Too */}
+                <div style={{ marginTop: '40px', borderTop: isPdfMode ? 'none' : '2px solid #333', paddingTop: '40px', pageBreakBefore: isPdfMode ? 'always' : 'auto' }}>
+                    <h2 style={{ fontSize: '1.8rem', fontWeight: 'bold', color: isPdfMode ? '#000' : '#bb86fc', marginBottom: '30px', textAlign: 'center' }}>Visual Match Analysis</h2>
+
+                    {/* Pressure Analysis Hero Section */}
+                    <div className="chart-container" style={{
+                        marginBottom: '40px',
+                        backgroundColor: isPdfMode ? '#f5f5f5' : '#1e1e1e',
+                        padding: '30px',
+                        borderRadius: '12px',
+                        border: isPdfMode ? '1px solid #ccc' : '1px solid #333',
+                        pageBreakInside: 'avoid'
+                    }}>
+                        {/* Header */}
+                        <div style={{
+                            display: 'flex',
+                            justifyContent: 'center', // Centered
+                            alignItems: 'center',
+                            marginBottom: '20px',
+                            borderBottom: isPdfMode ? '2px solid #ddd' : '2px solid #444',
+                            paddingBottom: '10px'
+                        }}>
+                            <h3 style={{
+                                fontSize: '1.5rem',  // Main section header size
+                                fontWeight: 'bold',
+                                color: isPdfMode ? '#000' : '#bb86fc',
+                                textTransform: 'uppercase',
+                                letterSpacing: '1px',
+                                margin: 0,
+                                textAlign: 'center'
+                            }}>
+                                Pressure & Work Rate
+                            </h3>
                         </div>
 
-                        {/* Puckout Analysis */}
-                        <div className="chart-container" style={{
-                            marginTop: '60px',
-                            marginBottom: '24px',
-                            backgroundColor: '#f5f5f5',
-                            padding: '16px',
-                            borderRadius: '8px',
-                            color: '#333',
-                            pageBreakInside: 'avoid',
-                            pageBreakBefore: 'always'
-                        }}>
-                            <h3 style={{ fontSize: '1rem', marginBottom: '10px', textAlign: 'center' }}>Puckout Analysis</h3>
-                            <div style={{ display: 'flex', justifyContent: 'space-around', flexWrap: 'wrap', marginBottom: '10px' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '30px' }}>
+                            {/* Hero Metric: Work Rate % */}
+                            <div style={{ textAlign: 'center' }}>
+                                <div style={{ fontSize: '0.9rem', color: isPdfMode ? '#666' : '#b0b0b0', textTransform: 'uppercase', fontWeight: 'bold', marginBottom: '5px' }}>Team Work Rate</div>
+                                <div style={{ fontSize: '10.5rem', fontWeight: 'bold', color: getPctColor(pressureEfficiency), lineHeight: '1.1' }}>
+                                    {pressureEfficiency}%
+                                </div>
+                                <div style={{ fontSize: '0.8rem', color: isPdfMode ? '#888' : '#666', marginTop: '5px' }}>Pressures to Possessions</div>
+                            </div>
+
+                            <div style={{ display: 'flex', justifyContent: 'center', gap: '40px', width: '100%', maxWidth: '600px', borderTop: isPdfMode ? '1px solid #ccc' : '1px solid #333', borderBottom: isPdfMode ? '1px solid #ccc' : '1px solid #333', padding: '15px 0' }}>
+                                <div style={{ textAlign: 'center', flex: 1 }}>
+                                    <div style={{ fontSize: '0.8rem', color: isPdfMode ? '#666' : '#b0b0b0', textTransform: 'uppercase' }}>Possessions</div>
+                                    <div style={{ fontSize: '3.5rem', fontWeight: 'bold', color: isPdfMode ? '#000' : '#fff' }}>{totalPossessions}</div>
+                                </div>
+                                <div style={{ borderLeft: isPdfMode ? '1px solid #ccc' : '1px solid #333' }}></div>
+                                <div style={{ textAlign: 'center', flex: 1 }}>
+                                    <div style={{ fontSize: '0.8rem', color: isPdfMode ? '#666' : '#b0b0b0', textTransform: 'uppercase' }}>Pressures</div>
+                                    <div style={{ fontSize: '3.5rem', fontWeight: 'bold', color: '#4caf50' }}>{totalPressures}</div>
+                                </div>
+                            </div>
+
+                            {/* Secondary Metrics (KPIs) -> Scaled to 1.8rem */}
+                            <div style={{ display: 'flex', justifyContent: 'center', gap: '20px', width: '100%', borderBottom: isPdfMode ? '1px solid #ccc' : '1px solid #333', padding: '15px 0' }}>
+                                <div style={{ textAlign: 'center', flex: 1 }}>
+                                    <div style={{ fontSize: '0.75rem', color: isPdfMode ? '#666' : '#b0b0b0', textTransform: 'uppercase' }}>Turnovers</div>
+                                    <div style={{ fontSize: '1.8rem', fontWeight: 'bold', color: '#4caf50' }}>{totalTurnovers}</div>
+                                </div>
+                                <div style={{ borderLeft: isPdfMode ? '1px solid #ccc' : '1px solid #333' }}></div>
+                                <div style={{ textAlign: 'center', flex: 1 }}>
+                                    <div style={{ fontSize: '0.75rem', color: isPdfMode ? '#666' : '#b0b0b0', textTransform: 'uppercase' }}>Success %</div>
+                                    <div style={{ fontSize: '1.8rem', fontWeight: 'bold', color: isPdfMode ? '#000' : '#fff' }}>{successRate}%</div>
+                                </div>
+                                <div style={{ borderLeft: isPdfMode ? '1px solid #ccc' : '1px solid #333' }}></div>
+                                <div style={{ textAlign: 'center', flex: 1 }}>
+                                    <div style={{ fontSize: '0.75rem', color: isPdfMode ? '#666' : '#b0b0b0', textTransform: 'uppercase' }}>Free Rate %</div>
+                                    <div style={{ fontSize: '1.8rem', fontWeight: 'bold', color: '#cf6679' }}>{freeRate}%</div>
+                                </div>
+                                <div style={{ borderLeft: isPdfMode ? '1px solid #ccc' : '1px solid #333' }}></div>
+                                <div style={{ textAlign: 'center', flex: 1 }}>
+                                    <div style={{ fontSize: '0.75rem', color: isPdfMode ? '#666' : '#b0b0b0', textTransform: 'uppercase' }}>Frees Against</div>
+                                    <div style={{ fontSize: '1.8rem', fontWeight: 'bold', color: '#ff9800' }}>{totalFreesAgainst}</div>
+                                </div>
+                            </div>
+
+                            {/* Compact Chart */}
+                            <div style={{ width: '100%', maxWidth: '500px', height: '250px', marginTop: '10px' }}>
+                                <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+                                    <BarChart data={pressureBarData}>
+                                        <CartesianGrid strokeDasharray="3 3" stroke={isPdfMode ? '#ddd' : '#333'} vertical={false} />
+                                        <XAxis dataKey="name" stroke={isPdfMode ? '#333' : '#b0b0b0'} fontSize={10} axisLine={false} tickLine={false} />
+                                        <YAxis stroke={isPdfMode ? '#333' : '#b0b0b0'} fontSize={10} axisLine={false} tickLine={false} />
+                                        <Tooltip
+                                            contentStyle={{ backgroundColor: isPdfMode ? '#fff' : '#1e1e1e', border: '1px solid #333', color: isPdfMode ? '#000' : '#fff' }}
+                                            itemStyle={{ fontSize: '12px' }}
+                                        />
+                                        <Legend wrapperStyle={{ fontSize: '10px', paddingTop: '10px' }} />
+                                        <Bar dataKey="Possessions" fill="#bb86fc" isAnimationActive={false} radius={[4, 4, 0, 0]} />
+                                        <Bar dataKey="Pressures" fill="#4caf50" isAnimationActive={false} radius={[4, 4, 0, 0]} />
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            </div>
+
+                            {/* KPI Guide */}
+                            <div style={{
+                                marginTop: '30px',
+                                padding: '20px',
+                                backgroundColor: isPdfMode ? '#f9f9f9' : '#252525',
+                                borderRadius: '10px',
+                                border: isPdfMode ? '1px solid #ddd' : '1px solid #333',
+                                fontSize: '0.85rem',
+                                color: isPdfMode ? '#333' : '#e0e0e0',
+                                lineHeight: '1.6',
+                                pageBreakInside: 'avoid',
+                                width: '100%',
+                                maxWidth: '100%',
+                                textAlign: 'center'
+                            }}>
+                                <h4 style={{ color: isPdfMode ? '#000' : '#03dac6', marginBottom: '10px', borderBottom: isPdfMode ? '1px solid #ccc' : '1px solid #444', paddingBottom: '5px', textTransform: 'uppercase', letterSpacing: '1px', fontSize: '0.9rem' }}>KPI: Pressure Efficiency</h4>
+                                <p style={{ margin: '0 0 10px 0' }}><strong>What it measures:</strong> The percentage of opposition possessions met with an active "Pressure" (tackle, hook, block, or forced error).</p>
+
+                                <div style={{ marginTop: '15px' }}>
+                                    <strong>Why it matters:</strong>
+                                    <ul style={{ paddingLeft: '0', listStyle: 'none', margin: '5px 0' }}>
+                                        <li><strong>Work Rate:</strong> Shows intensity in closing down space and disrupting opposition rhythm.</li>
+                                        <li><strong>Quality of Defense:</strong> Focuses on how many times we allowed the opposition to play comfortably.</li>
+                                    </ul>
+                                </div>
+
+                                <div style={{ marginTop: '15px' }}>
+                                    <strong>The Goal:</strong> Aim for <strong>60% or higher</strong>. Low Efficiency (&lt;45%) means opposition is given too much time to pick out passes and set up scoring opportunities.
+                                </div>
+
+                                <div style={{ marginTop: '15px', backgroundColor: isPdfMode ? '#fff' : '#1e1e1e', padding: '12px', borderRadius: '6px', border: isPdfMode ? '1px solid #eee' : '1px solid #333' }}>
+                                    <strong>How to read it:</strong>
+                                    <ul style={{ paddingLeft: '0', listStyle: 'none', margin: '5px 0' }}>
+                                        <li><strong>High Efficiency (&gt;60%):</strong> Suffocating the opposition, forcing panic passes and high turnover rates.</li>
+                                        <li><strong>Low Efficiency (&lt;45%):</strong> Opposition has "easy ball" and plays without fear of being tackled.</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Shot Analysis Hero Section */}
+                    <div className="chart-container" style={{
+                        marginBottom: '40px',
+                        backgroundColor: isPdfMode ? '#f5f5f5' : '#1e1e1e',
+                        padding: '30px',
+                        borderRadius: '12px',
+                        border: isPdfMode ? '1px solid #ccc' : '1px solid #333',
+                        pageBreakInside: 'avoid',
+                        pageBreakBefore: isPdfMode ? 'always' : 'auto'
+                    }}>
+                        <h3 style={{ fontSize: '1.2rem', marginBottom: '25px', color: isPdfMode ? '#000' : '#bb86fc', textAlign: 'center', textTransform: 'uppercase', letterSpacing: '1px' }}>Shot Analysis</h3>
+
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '30px' }}>
+                            {/* Hero Metric: Shot Attempts */}
+                            <div style={{ textAlign: 'center' }}>
+                                <div style={{ fontSize: '0.9rem', color: isPdfMode ? '#666' : '#b0b0b0', textTransform: 'uppercase', fontWeight: 'bold' }}>Territorial Effectiveness</div>
+                                <div style={{ fontSize: '11.25rem', fontWeight: 'bold', color: getPctColor(territorialEffectiveness), lineHeight: '1.1' }}>
+                                    {territorialEffectiveness}%
+                                </div>
+                                <div style={{ fontSize: '0.8rem', color: isPdfMode ? '#888' : '#666', marginTop: '5px' }}>Shots per 65m Entry</div>
+
+                                {/* Sub-Hero Row: Efficiency & Frees Won -> Scaled to 3.5rem */}
+                                <div style={{ display: 'flex', justifyContent: 'center', gap: '30px', marginTop: '15px' }}>
+                                    <div style={{ textAlign: 'center' }}>
+                                        <div style={{ fontSize: '0.75rem', color: isPdfMode ? '#666' : '#b0b0b0', textTransform: 'uppercase' }}>Shot Efficiency</div>
+                                        <div style={{ fontSize: '3.5rem', fontWeight: 'bold', color: getPctColor(shotEfficiency) }}>{shotEfficiency}%</div>
+                                    </div>
+                                    <div style={{ textAlign: 'center' }}>
+                                        <div style={{ fontSize: '0.75rem', color: isPdfMode ? '#666' : '#b0b0b0', textTransform: 'uppercase' }}>Frees Won</div>
+                                        <div style={{ fontSize: '3.5rem', fontWeight: 'bold', color: isPdfMode ? '#000' : '#fff' }}>{totalFreesWon}</div>
+                                    </div>
+                                    <div style={{ textAlign: 'center' }}>
+                                        <div style={{ fontSize: '0.75rem', color: isPdfMode ? '#666' : '#b0b0b0', textTransform: 'uppercase' }}>Scores from Frees</div>
+                                        <div style={{ fontSize: '3.5rem', fontWeight: 'bold', color: '#4caf50' }}>{sumStats('scoreFree')}</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Secondary Metrics -> Scaled to 1.8rem -> Increase to 2.7rem (1.5x) for Shot Attempts */}
+                            <div style={{ display: 'flex', justifyContent: 'center', gap: '20px', width: '100%', borderTop: isPdfMode ? '1px solid #ddd' : '1px solid #333', borderBottom: isPdfMode ? '1px solid #ddd' : '1px solid #333', padding: '15px 0' }}>
+                                <div style={{ textAlign: 'center', flex: 1 }}>
+                                    <div style={{ fontSize: '0.8rem', color: isPdfMode ? '#666' : '#b0b0b0', textTransform: 'uppercase' }}>Played Inside 65</div>
+                                    <div style={{ fontSize: '1.8rem', fontWeight: 'bold', color: isPdfMode ? '#000' : '#fff' }}>{totalAttacks}</div>
+                                </div>
+                                <div style={{ borderLeft: isPdfMode ? '1px solid #ddd' : '1px solid #333' }}></div>
+                                <div style={{ textAlign: 'center', flex: 1 }}>
+                                    <div style={{ fontSize: '0.8rem', color: isPdfMode ? '#666' : '#b0b0b0', textTransform: 'uppercase' }}>Shots Attempted</div>
+                                    <div style={{ fontSize: '2.7rem', fontWeight: 'bold', color: isPdfMode ? '#000' : '#fff' }}>{totalShots}</div>
+                                </div>
+                                <div style={{ borderLeft: isPdfMode ? '1px solid #ddd' : '1px solid #333' }}></div>
+                                <div style={{ textAlign: 'center', flex: 1 }}>
+                                    <div style={{ fontSize: '0.8rem', color: isPdfMode ? '#666' : '#b0b0b0', textTransform: 'uppercase' }}>Scores from Play</div>
+                                    <div style={{ fontSize: '1.8rem', fontWeight: 'bold', color: '#4caf50' }}>{totalScores}</div>
+                                </div>
+                                <div style={{ borderLeft: isPdfMode ? '1px solid #ddd' : '1px solid #333' }}></div>
+                                <div style={{ textAlign: 'center', flex: 1 }}>
+                                    <div style={{ fontSize: '0.8rem', color: isPdfMode ? '#666' : '#b0b0b0', textTransform: 'uppercase' }}>Scores From Frees</div>
+                                    <div style={{ fontSize: '1.8rem', fontWeight: 'bold', color: '#4caf50' }}>{sumStats('scoreFree')}</div>
+                                </div>
+                            </div>
+
+                            {/* Chart at the bottom */}
+                            <div style={{ width: '100%', maxWidth: '500px', height: '300px', display: 'flex', justifyContent: 'center' }}>
+                                <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+                                    <PieChart>
+                                        <Pie
+                                            data={shotData}
+                                            cx="50%"
+                                            cy="50%"
+                                            innerRadius={60}
+                                            outerRadius={80}
+                                            paddingAngle={5}
+                                            dataKey="value"
+                                            isAnimationActive={false}
+                                            label={renderCustomLabel}
+                                            labelLine={true}
+                                        >
+                                            {shotData.map((entry, index) => (
+                                                <Cell key={`cell-${index}`} fill={entry.color} />
+                                            ))}
+                                        </Pie>
+                                        <Tooltip contentStyle={{ backgroundColor: isPdfMode ? '#fff' : '#1e1e1e', border: '1px solid #333', color: isPdfMode ? '#000' : '#fff' }} />
+                                        <Legend wrapperStyle={{ fontSize: '10px', paddingTop: '10px' }} />
+                                    </PieChart>
+                                </ResponsiveContainer>
+                            </div>
+
+                            {/* KPI Guide */}
+                            <div style={{
+                                marginTop: '10px',
+                                padding: '20px',
+                                backgroundColor: isPdfMode ? '#f9f9f9' : '#252525',
+                                borderRadius: '10px',
+                                border: isPdfMode ? '1px solid #ddd' : '1px solid #333',
+                                fontSize: '0.85rem',
+                                color: isPdfMode ? '#333' : '#e0e0e0',
+                                lineHeight: '1.6',
+                                pageBreakInside: 'avoid',
+                                width: '100%',
+                                maxWidth: '100%',
+                                textAlign: 'center'
+                            }}>
+                                <h4 style={{ color: isPdfMode ? '#000' : '#bb86fc', marginBottom: '10px', borderBottom: isPdfMode ? '1px solid #ccc' : '1px solid #444', paddingBottom: '5px', textTransform: 'uppercase', letterSpacing: '1px', fontSize: '0.9rem' }}>KPI: Shot Analysis (Territorial Effectiveness & Efficiency)</h4>
+                                <p style={{ margin: '0 0 10px 0' }}><strong>What it measures:</strong> The conversion rate from ball possessions inside the 65m line to actual shots taken, and the subsequent success rate of those shots.</p>
+
+                                <div style={{ marginTop: '15px' }}>
+                                    <strong>Why it matters:</strong>
+                                    <ul style={{ paddingLeft: '0', listStyle: 'none', margin: '5px 0' }}>
+                                        <li><strong>Efficiency of Entry:</strong> Highlights whether we are creating scoring opportunities when we get the ball into attacking zones. Take your shot when we get the ball into the opposition 65</li>
+                                    </ul>
+                                </div>
+
+                                <div style={{ marginTop: '15px', backgroundColor: isPdfMode ? '#fff' : '#1e1e1e', padding: '12px', borderRadius: '6px', border: isPdfMode ? '1px solid #eee' : '1px solid #333' }}>
+                                    <strong>How to read it:</strong>
+                                    <ul style={{ paddingLeft: '0', listStyle: 'none', margin: '5px 0' }}>
+                                        <li><strong>High Efficiency (&gt;60% entries to shots):</strong> Clinical attacking play and forwards finding space effectively.</li>
+                                        <li><strong>Low Efficiency (&lt;45% entries to shots):</strong> Over-complicating play or strong opposition defensive pressure.</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Ruck Analysis */}
+                    <div className="chart-container" style={{
+                        marginTop: '20px',
+                        marginBottom: '40px',
+                        backgroundColor: isPdfMode ? '#f5f5f5' : '#1e1e1e',
+                        padding: '30px',
+                        borderRadius: '12px',
+                        border: isPdfMode ? '1px solid #ccc' : '1px solid #333',
+                        pageBreakInside: 'avoid',
+                        pageBreakBefore: isPdfMode ? 'always' : 'auto'
+                    }}>
+                        <h3 style={{ fontSize: '1.2rem', marginBottom: '25px', color: isPdfMode ? '#000' : '#bb86fc', textAlign: 'center', textTransform: 'uppercase', letterSpacing: '1px' }}>Ruck Analysis</h3>
+
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '30px' }}>
+                            {/* Hero Metric: Overall Ruck Win Rate */}
+                            <div style={{ textAlign: 'center' }}>
+                                <div style={{ fontSize: '0.9rem', color: isPdfMode ? '#666' : '#b0b0b0', textTransform: 'uppercase', fontWeight: 'bold', marginBottom: '5px' }}>Total Ruck Efficiency</div>
+                                <div style={{ fontSize: '10.5rem', fontWeight: 'bold', color: getPctColor(ruckEfficiency), lineHeight: '1.1' }}>
+                                    {ruckEfficiency}%
+                                </div>
+                                <div style={{ fontSize: '0.8rem', color: isPdfMode ? '#888' : '#666', marginTop: '5px' }}>Possession Won from Rucks</div>
+                            </div>
+
+                            {/* Row 1: Basic Stats */}
+                            <div style={{ display: 'flex', justifyContent: 'center', gap: '20px', width: '100%', borderTop: isPdfMode ? '1px solid #ddd' : '1px solid #333', borderBottom: isPdfMode ? '1px solid #ddd' : '1px solid #333', padding: '20px 0' }}>
+                                <div style={{ textAlign: 'center', flex: 1 }}>
+                                    <div style={{ fontSize: '0.8rem', color: isPdfMode ? '#666' : '#b0b0b0', textTransform: 'uppercase' }}>Total Rucks</div>
+                                    <div style={{ fontSize: '2.2rem', fontWeight: 'bold', color: isPdfMode ? '#000' : '#fff' }}>{totalRucks}</div>
+                                </div>
+                                <div style={{ borderLeft: isPdfMode ? '1px solid #ddd' : '1px solid #333' }}></div>
+                                <div style={{ textAlign: 'center', flex: 1 }}>
+                                    <div style={{ fontSize: '0.8rem', color: isPdfMode ? '#666' : '#b0b0b0', textTransform: 'uppercase' }}>Rucks Won</div>
+                                    <div style={{ fontSize: '2.2rem', fontWeight: 'bold', color: '#4caf50' }}>{rucksWon}</div>
+                                </div>
+                                <div style={{ borderLeft: isPdfMode ? '1px solid #ddd' : '1px solid #333' }}></div>
+                                <div style={{ textAlign: 'center', flex: 1 }}>
+                                    <div style={{ fontSize: '0.8rem', color: isPdfMode ? '#666' : '#b0b0b0', textTransform: 'uppercase' }}>Rucks Lost</div>
+                                    <div style={{ fontSize: '2.2rem', fontWeight: 'bold', color: '#cf6679' }}>{Math.max(0, totalRucks - rucksWon)}</div>
+                                </div>
+                            </div>
+
+                            {/* Row 2: Zone Efficiency */}
+                            <div style={{ display: 'flex', justifyContent: 'center', gap: '20px', width: '100%', paddingBottom: '20px', borderBottom: isPdfMode ? '1px solid #ddd' : '1px solid #333' }}>
+                                <div style={{ textAlign: 'center', flex: 1 }}>
+                                    <div style={{ fontSize: '0.8rem', color: isPdfMode ? '#666' : '#b0b0b0', textTransform: 'uppercase' }}>Defensive %</div>
+                                    <div style={{ fontSize: '1.8rem', fontWeight: 'bold', color: getPctColor(defRuckPct) }}>{defRuckPct}%</div>
+                                </div>
+                                <div style={{ borderLeft: isPdfMode ? '1px solid #ddd' : '1px solid #333' }}></div>
+                                <div style={{ textAlign: 'center', flex: 1 }}>
+                                    <div style={{ fontSize: '0.8rem', color: isPdfMode ? '#666' : '#b0b0b0', textTransform: 'uppercase' }}>Midfield %</div>
+                                    <div style={{ fontSize: '1.8rem', fontWeight: 'bold', color: getPctColor(midRuckPct) }}>{midRuckPct}%</div>
+                                </div>
+                                <div style={{ borderLeft: isPdfMode ? '1px solid #ddd' : '1px solid #333' }}></div>
+                                <div style={{ textAlign: 'center', flex: 1 }}>
+                                    <div style={{ fontSize: '0.8rem', color: isPdfMode ? '#666' : '#b0b0b0', textTransform: 'uppercase' }}>Forwards %</div>
+                                    <div style={{ fontSize: '1.8rem', fontWeight: 'bold', color: getPctColor(offRuckPct) }}>{offRuckPct}%</div>
+                                </div>
+                            </div>
+
+                            <div style={{ height: '250px', width: '100%', maxWidth: '500px', display: 'flex', justifyContent: 'center' }}>
+                                <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+                                    <BarChart data={ruckBarData}>
+                                        <CartesianGrid strokeDasharray="3 3" stroke={isPdfMode ? '#ddd' : '#333'} vertical={false} />
+                                        <XAxis dataKey="name" stroke={isPdfMode ? '#333' : '#b0b0b0'} fontSize={12} />
+                                        <YAxis stroke={isPdfMode ? '#333' : '#b0b0b0'} fontSize={12} />
+                                        <Tooltip contentStyle={{ backgroundColor: isPdfMode ? '#fff' : '#1e1e1e', border: '1px solid #333' }} />
+                                        <Legend wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }} />
+                                        <Bar dataKey="Total" fill="#bb86fc" radius={[4, 4, 0, 0]} />
+                                        <Bar dataKey="Won" fill="#00c853" radius={[4, 4, 0, 0]} />
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            </div>
+
+                            {/* KPI Guide */}
+                            <div style={{
+                                marginTop: '10px',
+                                padding: '20px',
+                                backgroundColor: isPdfMode ? '#f9f9f9' : '#252525',
+                                borderRadius: '10px',
+                                border: isPdfMode ? '1px solid #ddd' : '1px solid #333',
+                                fontSize: '0.85rem',
+                                color: isPdfMode ? '#333' : '#e0e0e0',
+                                lineHeight: '1.6',
+                                pageBreakInside: 'avoid',
+                                width: '100%',
+                                maxWidth: '100%',
+                                textAlign: 'center'
+                            }}>
+                                <h4 style={{ color: isPdfMode ? '#000' : '#bb86fc', marginBottom: '10px', borderBottom: isPdfMode ? '1px solid #ccc' : '1px solid #444', paddingBottom: '5px', textTransform: 'uppercase', letterSpacing: '1px', fontSize: '0.9rem' }}>KPI: Ruck Efficiency</h4>
+                                <p style={{ margin: '0 0 10px 0' }}><strong>What it measures:</strong> The percentage of contested "ruck" situations (loose ball contests) where our team emerged with possession.</p>
+
+                                <div style={{ marginTop: '15px' }}>
+                                    <strong>Why it matters:</strong>
+                                    <ul style={{ paddingLeft: '0', listStyle: 'none', margin: '5px 0' }}>
+                                        <li><strong>Possession Control & Physical Dominance:</strong> It is a double-edged sword. Dominating rucks ensures we deprive opposition possession, giving us valuable ball to distribute to our inside line.</li>
+                                        <li><strong>Consequences of Loss:</strong> Losing Rucks battle we burn energy winning ball back, gives oppositions a platform to attack us and denies us possession to feed our forwards.</li>
+                                    </ul>
+                                </div>
+
+                                <div style={{ marginTop: '15px', backgroundColor: isPdfMode ? '#fff' : '#1e1e1e', padding: '12px', borderRadius: '6px', border: isPdfMode ? '1px solid #eee' : '1px solid #333' }}>
+                                    <strong>How to read it:</strong>
+                                    <ul style={{ paddingLeft: '0', listStyle: 'none', margin: '5px 0' }}>
+                                        <li><strong>High Efficiency (&gt;60%):</strong> Total dominance in physical duels, sustaining pressure and keeping possession.</li>
+                                        <li><strong>Low Efficiency (&lt;45%):</strong> Struggling to secure loose ball, allowing the opposition to break and transition easily.</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Puckout Analysis */}
+                    <div className="chart-container" style={{
+                        marginBottom: '40px',
+                        backgroundColor: isPdfMode ? '#f5f5f5' : '#1e1e1e',
+                        padding: '30px',
+                        borderRadius: '12px',
+                        border: isPdfMode ? '1px solid #ccc' : '1px solid #333',
+                        pageBreakInside: 'avoid',
+                        pageBreakBefore: isPdfMode ? 'always' : 'auto'
+                    }}>
+                        <h3 style={{ fontSize: '1.2rem', marginBottom: '25px', color: isPdfMode ? '#000' : '#bb86fc', textAlign: 'center', textTransform: 'uppercase', letterSpacing: '1px' }}>Puckout Analysis</h3>
+
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '30px' }}>
+                            {/* Hero Metrics: % Won */}
+                            <div style={{ display: 'flex', justifyContent: 'center', flexWrap: 'wrap', gap: '40px', width: '100%', maxWidth: '800px' }}>
                                 <div style={{ textAlign: 'center' }}>
-                                    <h4 style={{ color: '#666', marginBottom: '5px' }}>Own Puckouts</h4>
+                                    <div style={{ fontSize: '0.9rem', color: isPdfMode ? '#666' : '#b0b0b0', textTransform: 'uppercase', fontWeight: 'bold', marginBottom: '5px' }}>Own Puckouts Won</div>
+                                    <div style={{ fontSize: '10.5rem', fontWeight: 'bold', color: getPctColor(ownPuckoutWonPct), lineHeight: '1.1' }}>
+                                        {ownPuckoutWonPct}%
+                                    </div>
+                                    <div style={{ fontSize: '0.8rem', color: isPdfMode ? '#888' : '#666', marginTop: '5px', marginBottom: '15px' }}>Possession Retained</div>
+
+                                    {/* Grouped Metrics */}
+                                    <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
+                                        <KPICard title="Own Won" value={sumStats('ownPuckoutWon')} color="#4caf50" bgColor={isPdfMode ? '#fff' : '#121212'} titleColor={isPdfMode ? '#666' : '#b0b0b0'} />
+                                        <KPICard title="Own Lost" value={Math.max(0, sumStats('ownPuckout') - sumStats('ownPuckoutWon'))} color="#cf6679" bgColor={isPdfMode ? '#fff' : '#121212'} titleColor={isPdfMode ? '#666' : '#b0b0b0'} />
+                                    </div>
+                                </div>
+
+                                <div style={{ textAlign: 'center' }}>
+                                    <div style={{ fontSize: '0.9rem', color: isPdfMode ? '#666' : '#b0b0b0', textTransform: 'uppercase', fontWeight: 'bold', marginBottom: '5px' }}>Opposition Puckouts Won</div>
+                                    <div style={{ fontSize: '10.5rem', fontWeight: 'bold', color: getPctColor(oppPuckoutWonPct), lineHeight: '1.1' }}>
+                                        {oppPuckoutWonPct}%
+                                    </div>
+                                    <div style={{ fontSize: '0.8rem', color: isPdfMode ? '#888' : '#666', marginTop: '5px', marginBottom: '15px' }}>Possession Won</div>
+
+                                    {/* Grouped Metrics */}
+                                    <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
+                                        <KPICard title="Opp Won" value={sumStats('oppPuckoutWon')} color="#03dac6" bgColor={isPdfMode ? '#fff' : '#121212'} titleColor={isPdfMode ? '#666' : '#b0b0b0'} />
+                                        <KPICard title="Opp Lost" value={Math.max(0, sumStats('oppPuckout') - sumStats('oppPuckoutWon'))} color="#bb86fc" bgColor={isPdfMode ? '#fff' : '#121212'} titleColor={isPdfMode ? '#666' : '#b0b0b0'} />
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div style={{ display: 'flex', justifyContent: 'space-around', flexWrap: 'wrap', gap: '30px', width: '100%' }}>
+                                <div style={{ textAlign: 'center' }}>
+                                    <h4 style={{ color: isPdfMode ? '#666' : '#b0b0b0', marginBottom: '10px', fontSize: '0.9rem' }}>Own Puckouts</h4>
                                     <PieChart width={250} height={250}>
                                         <Pie
                                             data={ownPuckoutData}
@@ -605,10 +1152,11 @@ const DashboardView = () => {
                                                 <Cell key={`cell-${index}`} fill={entry.color} />
                                             ))}
                                         </Pie>
+                                        <Tooltip contentStyle={{ backgroundColor: isPdfMode ? '#fff' : '#1e1e1e', border: '1px solid #333' }} />
                                     </PieChart>
                                 </div>
                                 <div style={{ textAlign: 'center' }}>
-                                    <h4 style={{ color: '#666', marginBottom: '5px' }}>Opposition Puckouts</h4>
+                                    <h4 style={{ color: isPdfMode ? '#666' : '#b0b0b0', marginBottom: '10px', fontSize: '0.9rem' }}>Opposition Puckouts</h4>
                                     <PieChart width={250} height={250}>
                                         <Pie
                                             data={oppPuckoutData}
@@ -626,114 +1174,97 @@ const DashboardView = () => {
                                                 <Cell key={`cell-${index}`} fill={entry.color} />
                                             ))}
                                         </Pie>
+                                        <Tooltip contentStyle={{ backgroundColor: isPdfMode ? '#fff' : '#1e1e1e', border: '1px solid #333' }} />
                                     </PieChart>
                                 </div>
                             </div>
-                            <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
-                                <KPICard title="Own Won" value={sumStats('ownPuckoutWon')} color="#4caf50" bgColor="#fff" titleColor="#666" />
-                                <KPICard title="Own Lost" value={Math.max(0, sumStats('ownPuckout') - sumStats('ownPuckoutWon'))} color="#cf6679" bgColor="#fff" titleColor="#666" />
-                                <KPICard title="Opp Won" value={sumStats('oppPuckoutWon')} color="#03dac6" bgColor="#fff" titleColor="#666" />
-                                <KPICard title="Opp Lost" value={Math.max(0, sumStats('oppPuckout') - sumStats('oppPuckoutWon'))} color="#bb86fc" bgColor="#fff" titleColor="#666" />
-                            </div>
                         </div>
 
-                        {/* Pitch Summaries */}
-                        <div style={{ marginTop: '60px', pageBreakInside: 'avoid' }}>
-                            <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#000', marginBottom: '20px', textAlign: 'center' }}>Pitch Maps - 1st Half</h2>
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
-                                <div>
-                                    <h3 style={{ textAlign: 'center', fontSize: '0.9rem', marginBottom: '10px' }}>HOME: {matchInfo.homeTeam} Scores</h3>
-                                    <PitchSummary data={firstHalfScores.filter(s => s.team === 'home')} type="scores" />
-                                </div>
-                                <div>
-                                    <h3 style={{ textAlign: 'center', fontSize: '0.9rem', marginBottom: '10px' }}>AWAY: {matchInfo.awayTeam} Scores</h3>
-                                    <PitchSummary data={firstHalfScores.filter(s => s.team === 'away')} type="scores" />
-                                </div>
-                                <div>
-                                    <h3 style={{ textAlign: 'center', fontSize: '0.9rem', marginBottom: '10px' }}>HOME: {matchInfo.homeTeam} Puckouts</h3>
-                                    <PitchSummary data={firstHalfPuckouts.filter(p => p.team === 'home')} type="puckouts" />
-                                </div>
-                                <div>
-                                    <h3 style={{ textAlign: 'center', fontSize: '0.9rem', marginBottom: '10px' }}>AWAY: {matchInfo.awayTeam} Puckouts</h3>
-                                    <PitchSummary data={firstHalfPuckouts.filter(p => p.team === 'away')} type="puckouts" />
-                                </div>
-                            </div>
-                        </div>
+                        {/* KPI Guide */}
+                        <div style={{
+                            marginTop: '10px',
+                            padding: '20px',
+                            backgroundColor: isPdfMode ? '#f9f9f9' : '#252525',
+                            borderRadius: '10px',
+                            border: isPdfMode ? '1px solid #ddd' : '1px solid #333',
+                            fontSize: '0.85rem',
+                            color: isPdfMode ? '#333' : '#e0e0e0',
+                            lineHeight: '1.6',
+                            pageBreakInside: 'avoid',
+                            width: '100%',
+                            maxWidth: '100%',
+                            textAlign: 'center'
+                        }}>
+                            <h4 style={{ color: isPdfMode ? '#000' : '#bb86fc', marginBottom: '10px', borderBottom: isPdfMode ? '1px solid #ccc' : '1px solid #444', paddingBottom: '5px', textTransform: 'uppercase', letterSpacing: '1px', fontSize: '0.9rem' }}>KPI: Puckout Analysis (Retention & Dominance)</h4>
+                            <p style={{ margin: '0 0 10px 0' }}><strong>What it measures:</strong> Our ability to retain our own restart and win the opposition's restart, creating immediate attacking platforms.</p>
 
-                        <div className="html2pdf__page-break"></div>
-                        <div style={{ marginTop: '40px' }}>
-                            <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#000', marginBottom: '20px', textAlign: 'center' }}>Pitch Maps - 2nd Half</h2>
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
-                                <div>
-                                    <h3 style={{ textAlign: 'center', fontSize: '0.9rem', marginBottom: '10px' }}>HOME: {matchInfo.homeTeam} Scores</h3>
-                                    <PitchSummary data={secondHalfScores.filter(s => s.team === 'home')} type="scores" />
-                                </div>
-                                <div>
-                                    <h3 style={{ textAlign: 'center', fontSize: '0.9rem', marginBottom: '10px' }}>AWAY: {matchInfo.awayTeam} Scores</h3>
-                                    <PitchSummary data={secondHalfScores.filter(s => s.team === 'away')} type="scores" />
-                                </div>
-                                <div>
-                                    <h3 style={{ textAlign: 'center', fontSize: '0.9rem', marginBottom: '10px' }}>HOME: {matchInfo.homeTeam} Puckouts</h3>
-                                    <PitchSummary data={secondHalfPuckouts.filter(p => p.team === 'home')} type="puckouts" />
-                                </div>
-                                <div>
-                                    <h3 style={{ textAlign: 'center', fontSize: '0.9rem', marginBottom: '10px' }}>AWAY: {matchInfo.awayTeam} Puckouts</h3>
-                                    <PitchSummary data={secondHalfPuckouts.filter(p => p.team === 'away')} type="puckouts" />
-                                </div>
+                            <div style={{ marginTop: '15px' }}>
+                                <strong>Why it matters:</strong>
+                                <ul style={{ paddingLeft: '0', listStyle: 'none', margin: '5px 0' }}>
+                                    <li><strong>Attacking Platform:</strong> Winning your own puckout provides a direct route to the opposition's half.</li>
+                                    <li><strong>Disrupting Opposition:</strong> Dominating the opposition's puckout denies them a clean exit.</li>
+                                </ul>
+                            </div>
+
+                            <div style={{ marginTop: '15px', backgroundColor: isPdfMode ? '#fff' : '#1e1e1e', padding: '12px', borderRadius: '6px', border: isPdfMode ? '1px solid #eee' : '1px solid #333' }}>
+                                <strong>How to read it:</strong>
+                                <ul style={{ paddingLeft: '0', listStyle: 'none', margin: '5px 0' }}>
+                                    <li><strong>High Retention (&gt;70% Own):</strong> Strong structural setup and aerial dominance.</li>
+                                    <li><strong>Low Retention (&lt;50% Own):</strong> Struggle to find space, forcing the defense into more frequent long-range contests.</li>
+                                </ul>
                             </div>
                         </div>
                     </div>
-                )}
+                </div>
 
                 <style>{`
-                .summary-cards-container {
-                    display: grid;
-                    grid-template-columns: 1fr;
-                    gap: 20px;
-                    margin-bottom: 30px;
-                }
-                @media (min-width: 768px) {
-                    .summary-cards-container {
-                        grid-template-columns: 1fr 1fr;
-                    }
-                }
+                        .summary-cards-container {
+                            display: grid;
+                            grid-template-columns: 1fr;
+                            gap: 20px;
+                            margin-bottom: 30px;
+                        }
+                        @media (min-width: 768px) {
+                            .summary-cards-container {
+                                grid-template-columns: 1fr 1fr;
+                            }
+                        }
+        
+                        .half-row { color: #90caf9 !important; }
+                        
+                        .pdf-mode .half-row { color: #000000 !important; }
+                        .pdf-mode {
+                            background-color: white !important;
+                            color: black !important;
+                        }
+                        .pdf-mode .summary-card {
+                            background-color: #f5f5f5 !important;
+                            color: black !important;
+                            border: 1px solid #ccc;
+                            padding: 8px !important;
+                        }
+                        .pdf-mode .stat-row {
+                            padding: 4px 0 !important;
+                            font-size: 0.8rem !important;
+                        }
+                        .pdf-mode h2, .pdf-mode h3, .pdf-mode h4 {
+                            color: black !important;
+                        }
+                    `}</style>
 
-                .half-row { color: #90caf9 !important; }
-                
-                .pdf-mode .half-row { color: #000000 !important; }
-                .pdf-mode {
-                    background-color: white !important;
-                    color: black !important;
-                }
-                .pdf-mode .summary-card {
-                    background-color: #f5f5f5 !important;
-                    color: black !important;
-                    border: 1px solid #ccc;
-                    padding: 8px !important; /* Compact padding for PDF */
-                }
-                .pdf-mode .stat-row {
-                    padding: 4px 0 !important; /* Compact padding for PDF */
-                    font-size: 0.8rem !important;
-                }
-                .pdf-mode h2, .pdf-mode h3, .pdf-mode h4 {
-                    color: black !important;
-                }
-                /* Removed .pdf-mode span to allow inline colors */
-            `}</style>
+                <button onClick={generatePDF} style={{
+                    width: '100%',
+                    backgroundColor: '#bb86fc',
+                    color: 'black',
+                    padding: '16px',
+                    borderRadius: '8px',
+                    fontWeight: 'bold',
+                    fontSize: '1rem',
+                    marginTop: '20px'
+                }}>
+                    {isPdfMode ? 'Generating PDF...' : 'Download Match PDF'}
+                </button>
             </div>
-
-            <button onClick={generatePDF} style={{
-                width: '100%',
-                backgroundColor: '#bb86fc',
-                color: 'black',
-                padding: '16px',
-                borderRadius: '8px',
-                fontWeight: 'bold',
-                fontSize: '1rem',
-                marginTop: '20px'
-            }}>
-                {isPdfMode ? 'Generating PDF...' : 'Download Match PDF'}
-            </button>
         </div>
     );
 };

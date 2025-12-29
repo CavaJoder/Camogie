@@ -1,4 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
+import { db } from '../firebase';
+import { ref, set, onValue } from 'firebase/database';
 
 const MatchContext = createContext();
 
@@ -39,13 +41,98 @@ export const MatchProvider = ({ children }) => {
     return saved ? JSON.parse(saved) : INITIAL_STATS;
   });
 
-  // Pitch Stats State (Scores & Puckouts)
+  // Pitch Stats State (Scores, Puckouts, Frees)
   const [pitchStats, setPitchStats] = useState(() => {
     const saved = localStorage.getItem('match_pitch_stats');
-    return saved ? JSON.parse(saved) : { scores: [], puckouts: [] };
+    return saved ? JSON.parse(saved) : { scores: [], puckouts: [], frees: [] };
   });
 
+  // Manual Entry State
+  const [manualStats, setManualStats] = useState(() => {
+    const saved = localStorage.getItem('manual_stats');
+    return saved ? JSON.parse(saved) : { q1: {}, q2: {}, q3: {}, q4: {} };
+  });
+
+  const [manualPitchEvents, setManualPitchEvents] = useState(() => {
+    const saved = localStorage.getItem('manual_pitch_events');
+    return saved ? JSON.parse(saved) : {
+      q1: { scores: [], puckouts: [], frees: [] },
+      q2: { scores: [], puckouts: [], frees: [] },
+      q3: { scores: [], puckouts: [], frees: [] },
+      q4: { scores: [], puckouts: [], frees: [] }
+    };
+  });
+
+  // Real-Time Sync State
+  const [matchId, setMatchId] = useState(() => localStorage.getItem('match_id') || '');
+  const [isLive, setIsLive] = useState(() => localStorage.getItem('is_live') === 'true');
+  const [isAdmin, setIsAdmin] = useState(() => localStorage.getItem('is_admin') === 'true'); // True if we are the ones broadcasting
+
   const timerIntervalRef = useRef(null);
+
+  // Sync Effect
+  useEffect(() => {
+    if (!matchId) return;
+
+    // Safety check: if db failed to initialize (e.g. missing config), don't crash the app
+    if (!db) {
+      console.error("Firebase Database not initialized");
+      return;
+    }
+
+    try {
+      const matchRef = ref(db, `matches/${matchId}`);
+
+      if (isLive && isAdmin) {
+        // ADMIN MODE: Push changes to Firebase
+        set(matchRef, {
+          timer,
+          matchInfo,
+          stats,
+          pitchStats,
+          manualStats,
+          manualPitchEvents,
+          lastUpdated: Date.now()
+        }).catch(err => console.error("Sync Error:", err));
+      }
+      else if (isLive && !isAdmin) {
+        // CLIENT MODE: Listen for changes from Firebase
+        const unsubscribe = onValue(matchRef, (snapshot) => {
+          const data = snapshot.val();
+          if (data) {
+            if (data.timer) setTimer(prev => ({ ...prev, ...data.timer, isRunning: data.timer.isRunning })); // Keep local running state logic? Actually for clients we usually just mirror
+            if (data.matchInfo) setMatchInfo(data.matchInfo);
+            if (data.stats) setStats(data.stats);
+            if (data.pitchStats) setPitchStats(data.pitchStats);
+            if (data.manualStats) setManualStats(data.manualStats);
+            if (data.manualPitchEvents) setManualPitchEvents(data.manualPitchEvents);
+          }
+        });
+        return () => unsubscribe();
+      }
+    } catch (e) {
+      console.error("Error setting up Firebase sync:", e);
+    }
+  }, [matchId, isLive, isAdmin, timer, matchInfo, stats, pitchStats, manualStats, manualPitchEvents]);
+
+  // Persist Live State
+  useEffect(() => {
+    localStorage.setItem('match_id', matchId);
+    localStorage.setItem('is_live', isLive);
+    localStorage.setItem('is_admin', isAdmin);
+  }, [matchId, isLive, isAdmin]);
+
+  const goLive = (newMatchId, admin = true) => {
+    setMatchId(newMatchId);
+    setIsAdmin(admin);
+    setIsLive(true);
+  };
+
+  const stopLive = () => {
+    setIsLive(false);
+    setIsAdmin(false);
+    setMatchId('');
+  };
 
   // Persistence Effects
   useEffect(() => {
@@ -149,21 +236,7 @@ export const MatchProvider = ({ children }) => {
     setMatchInfo(prev => ({ ...prev, [field]: value }));
   };
 
-  // Manual Entry State
-  const [manualStats, setManualStats] = useState(() => {
-    const saved = localStorage.getItem('manual_stats');
-    return saved ? JSON.parse(saved) : { q1: {}, q2: {}, q3: {}, q4: {} };
-  });
 
-  const [manualPitchEvents, setManualPitchEvents] = useState(() => {
-    const saved = localStorage.getItem('manual_pitch_events');
-    return saved ? JSON.parse(saved) : {
-      q1: { scores: [], puckouts: [] },
-      q2: { scores: [], puckouts: [] },
-      q3: { scores: [], puckouts: [] },
-      q4: { scores: [], puckouts: [] }
-    };
-  });
 
   // Persistence Effects for Manual Data
   useEffect(() => {
@@ -195,20 +268,46 @@ export const MatchProvider = ({ children }) => {
     }));
   };
 
+  const undoPitchEvent = (type) => {
+    setPitchStats(prev => {
+      const currentLayer = prev[type] || [];
+      if (currentLayer.length === 0) return prev;
+      return {
+        ...prev,
+        [type]: currentLayer.slice(0, -1)
+      };
+    });
+  };
+
+  const undoManualPitchEvent = (quarter, type) => {
+    setManualPitchEvents(prev => {
+      const currentQuarter = prev[quarter] || {};
+      const currentLayer = currentQuarter[type] || [];
+      if (currentLayer.length === 0) return prev;
+      return {
+        ...prev,
+        [quarter]: {
+          ...currentQuarter,
+          [type]: currentLayer.slice(0, -1)
+        }
+      };
+    });
+  };
+
   const resetMatch = () => {
     if (window.confirm('Are you sure you want to reset the match? All data will be lost.')) {
       setStats(INITIAL_STATS);
       setTimer({ minutes: 0, seconds: 0, isRunning: false, quarter: 'Q1' });
-      setPitchStats({ scores: [], puckouts: [] });
+      setPitchStats({ scores: [], puckouts: [], frees: [] });
       setMatchInfo(INITIAL_MATCH_INFO);
 
       // Reset Manual Data too
       setManualStats({ q1: {}, q2: {}, q3: {}, q4: {} });
       setManualPitchEvents({
-        q1: { scores: [], puckouts: [] },
-        q2: { scores: [], puckouts: [] },
-        q3: { scores: [], puckouts: [] },
-        q4: { scores: [], puckouts: [] }
+        q1: { scores: [], puckouts: [], frees: [] },
+        q2: { scores: [], puckouts: [], frees: [] },
+        q3: { scores: [], puckouts: [], frees: [] },
+        q4: { scores: [], puckouts: [], frees: [] }
       });
 
       localStorage.removeItem('match_stats');
@@ -237,7 +336,14 @@ export const MatchProvider = ({ children }) => {
       updateMatchInfo,
       resetMatch,
       updateManualStat,
-      addManualPitchEvent
+      addManualPitchEvent,
+      undoPitchEvent,
+      undoManualPitchEvent,
+      goLive,
+      stopLive,
+      matchId,
+      isLive,
+      isAdmin
     }}>
       {children}
     </MatchContext.Provider>

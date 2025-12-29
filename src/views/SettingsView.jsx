@@ -27,7 +27,7 @@ const InputGroup = ({ label, value, onChange, type = 'text', disabled }) => (
 );
 
 const SettingsView = () => {
-    const { matchInfo, updateMatchInfo, timer, resetMatch } = useMatch();
+    const { matchInfo, updateMatchInfo, timer, resetMatch, goLive, stopLive, matchId, isAdmin } = useMatch();
     const isMatchComplete = timer.quarter === 'FT';
 
     const handleImageUpload = (e, field) => {
@@ -211,6 +211,99 @@ const SettingsView = () => {
             >
                 {isMatchComplete ? 'Reset Match' : 'Save Settings'}
             </button>
+
+            <hr style={{ borderColor: '#333', margin: '32px 0' }} />
+
+            {/* Real-Time Sync Section */}
+            <h3 style={{ fontSize: '1.2rem', marginBottom: '16px', color: '#03dac6' }}>Real-Time Sync (Beta)</h3>
+
+            {!matchId ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                    <button
+                        onClick={() => {
+                            const newId = Math.random().toString(36).substr(2, 6).toUpperCase();
+                            if (window.confirm(`Go Live with Match ID: ${newId}?`)) {
+                                goLive(newId, true);
+                            }
+                        }}
+                        style={{
+                            padding: '16px',
+                            backgroundColor: '#03dac6',
+                            color: '#000',
+                            fontWeight: 'bold',
+                            border: 'none',
+                            borderRadius: '8px',
+                            fontSize: '1rem',
+                            cursor: 'pointer'
+                        }}
+                    >
+                        Go Live (Host)
+                    </button>
+
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                        <input
+                            type="text"
+                            placeholder="Enter Match ID"
+                            id="joinMatchInput"
+                            style={{
+                                flex: 2,
+                                padding: '12px',
+                                backgroundColor: '#1e1e1e',
+                                border: '1px solid #333',
+                                borderRadius: '6px',
+                                color: 'white'
+                            }}
+                        />
+                        <button
+                            onClick={() => {
+                                const id = document.getElementById('joinMatchInput').value.trim();
+                                if (id) goLive(id, false);
+                            }}
+                            style={{
+                                flex: 1,
+                                padding: '12px',
+                                backgroundColor: '#1e1e1e',
+                                border: '1px solid #333',
+                                color: '#03dac6',
+                                fontWeight: 'bold',
+                                borderRadius: '6px',
+                                cursor: 'pointer'
+                            }}
+                        >
+                            Join
+                        </button>
+                    </div>
+                </div>
+            ) : (
+                <div style={{ backgroundColor: '#1e1e1e', padding: '16px', borderRadius: '8px', border: '1px solid #03dac6' }}>
+                    <div style={{ marginBottom: '10px' }}>
+                        <span style={{ color: '#b0b0b0' }}>Status: </span>
+                        <span style={{ color: '#03dac6', fontWeight: 'bold' }}>● {isAdmin ? 'Broadcasting' : 'Watching'}</span>
+                    </div>
+                    <div style={{ marginBottom: '20px', fontSize: '1.2rem', fontWeight: 'bold', color: 'white' }}>
+                        Match ID: <span style={{ fontFamily: 'monospace', backgroundColor: '#333', padding: '4px 8px', borderRadius: '4px' }}>{matchId}</span>
+                    </div>
+                    <button
+                        onClick={() => {
+                            if (window.confirm('Disconnect from live session?')) {
+                                stopLive();
+                            }
+                        }}
+                        style={{
+                            width: '100%',
+                            padding: '12px',
+                            backgroundColor: '#cf6679',
+                            color: '#000',
+                            fontWeight: 'bold',
+                            border: 'none',
+                            borderRadius: '6px',
+                            cursor: 'pointer'
+                        }}
+                    >
+                        Disconnect
+                    </button>
+                </div>
+            )}
 
         </div>
     );

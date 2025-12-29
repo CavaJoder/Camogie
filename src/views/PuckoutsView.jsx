@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useMatch } from '../context/MatchContext';
 
 const PuckoutsView = () => {
-    const { matchInfo, pitchStats, addPitchEvent } = useMatch();
+    const { matchInfo, pitchStats, addPitchEvent, timer } = useMatch();
     const [selectedOutcome, setSelectedOutcome] = useState(null); // 'won' or 'lost'
     const [viewTeam, setViewTeam] = useState('home'); // Toggle between teams for viewing AND recording
 
@@ -28,7 +28,21 @@ const PuckoutsView = () => {
         addPitchEvent('puckouts', newPuckout);
     };
 
-    const currentPuckouts = pitchStats.puckouts.filter(p => p.team === viewTeam);
+    const currentPuckouts = pitchStats.puckouts.filter(p => {
+        if (p.team !== viewTeam) return false;
+
+        // Half Logic
+        const isFirstHalf = timer.quarter === 'Q1' || timer.quarter === 'Q2';
+        const puckoutQuarter = p.quarter || 'Q1';
+        const isPuckoutFirstHalf = puckoutQuarter === 'Q1' || puckoutQuarter === 'Q2';
+
+        if (isFirstHalf) {
+            return isPuckoutFirstHalf;
+        } else {
+            // In 2nd half (Q3, Q4, FT), show only 2nd half puckouts
+            return !isPuckoutFirstHalf;
+        }
+    });
 
     return (
         <div style={{ padding: '20px', paddingBottom: '80px' }}>

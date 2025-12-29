@@ -2,13 +2,13 @@ import React, { useState } from 'react';
 import { useMatch } from '../context/MatchContext';
 
 const ScoresView = () => {
-    const { matchInfo, pitchStats, addPitchEvent } = useMatch();
+    const { matchInfo, pitchStats, addPitchEvent, undoPitchEvent, timer } = useMatch();
     const [selectedType, setSelectedType] = useState(null);
     const [selectedTeam, setSelectedTeam] = useState('home');
 
     const scoreTypes = [
-        { id: 'point', label: 'Point', color: '#fff' }, // White
-        { id: 'goal', label: 'Goal', color: '#000000' }, // Black
+        { id: 'point', label: 'Point', color: '#ffff00' }, // Yellow
+        { id: 'goal', label: 'Goal', color: '#e91e63' }, // Pink
         { id: 'wide', label: 'Wide', color: '#f44336' }, // Red
         { id: '45', label: '45', color: '#ff9800' }, // Orange
         { id: 'free', label: 'Free', color: '#2196f3' }, // Blue
@@ -37,11 +37,43 @@ const ScoresView = () => {
         addPitchEvent('scores', newScore);
     };
 
-    const currentScores = pitchStats.scores.filter(s => s.team === selectedTeam);
+    const currentScores = pitchStats.scores.filter(s => {
+        if (s.team !== selectedTeam) return false;
+
+        // Half Logic
+        const isFirstHalf = timer.quarter === 'Q1' || timer.quarter === 'Q2';
+        const scoreQuarter = s.quarter || 'Q1'; // Default to Q1 if missing
+        const isScoreFirstHalf = scoreQuarter === 'Q1' || scoreQuarter === 'Q2';
+
+        if (isFirstHalf) {
+            return isScoreFirstHalf;
+        } else {
+            // In 2nd half (Q3, Q4, FT), show only 2nd half scores
+            // Logic: "hide the first half scores"
+            return !isScoreFirstHalf;
+        }
+    });
 
     return (
         <div style={{ padding: '20px', paddingBottom: '80px' }}>
-            <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#fff', marginBottom: '20px' }}>Scores</h2>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#fff' }}>Scores</h2>
+                <button
+                    onClick={() => undoPitchEvent('scores')}
+                    style={{
+                        padding: '8px 16px',
+                        backgroundColor: '#cf6679',
+                        color: '#fff',
+                        border: 'none',
+                        borderRadius: '6px',
+                        fontSize: '0.8rem',
+                        fontWeight: 'bold',
+                        cursor: 'pointer'
+                    }}
+                >
+                    Undo Last
+                </button>
+            </div>
 
             {/* Combined Score and Team Controls */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px', marginBottom: '20px' }}>
