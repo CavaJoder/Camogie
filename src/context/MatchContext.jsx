@@ -50,6 +50,18 @@ export const MatchProvider = ({ children }) => {
     return saved ? JSON.parse(saved) : INITIAL_MATCH_INFO;
   });
 
+  const [currentQuarter, setCurrentQuarter] = useState(() => {
+    const saved = localStorage.getItem('lite_current_quarter');
+    return saved ? parseInt(saved) : 1;
+  });
+
+  const [quarterlyStats, setQuarterlyStats] = useState(() => {
+    const saved = localStorage.getItem('lite_quarterly_stats');
+    return saved ? JSON.parse(saved) : {};
+  });
+
+  const [matchType, setMatchType] = useState('Match'); // 'Match' or 'Training'
+
   const timerIntervalRef = useRef(null);
 
   // --- Persistence ---
@@ -58,6 +70,8 @@ export const MatchProvider = ({ children }) => {
   useEffect(() => { localStorage.setItem('lite_current_stats', JSON.stringify(currentStats)); }, [currentStats]);
   useEffect(() => { localStorage.setItem('lite_timer', JSON.stringify(timer)); }, [timer]);
   useEffect(() => { localStorage.setItem('lite_match_info', JSON.stringify(matchInfo)); }, [matchInfo]);
+  useEffect(() => { localStorage.setItem('lite_current_quarter', currentQuarter); }, [currentQuarter]);
+  useEffect(() => { localStorage.setItem('lite_quarterly_stats', JSON.stringify(quarterlyStats)); }, [quarterlyStats]);
 
   // --- Timer Logic ---
   useEffect(() => {
@@ -83,31 +97,81 @@ export const MatchProvider = ({ children }) => {
     setTimer(prev => ({ ...prev, isRunning: true }));
   };
 
-  const stopMatch = () => {
+  const pauseMatch = () => {
+    setTimer(prev => ({ ...prev, isRunning: false }));
+  };
+
+  const endQuarter = () => {
     setTimer(prev => ({ ...prev, isRunning: false }));
 
-    // Save to History
+    // Save snapshot of current stats for this quarter
+    setQuarterlyStats(prev => ({
+      ...prev,
+      [currentQuarter]: { ...currentStats }
+    }));
+
+    // Reset counters for the next quarter
+    setCurrentStats(INITIAL_STATS);
+
+    // Move to next quarter if not already at 4
+    if (currentQuarter < 4) {
+      setCurrentQuarter(prev => prev + 1);
+    }
+  };
+
+  const finishMatch = () => {
+    setTimer(prev => ({ ...prev, isRunning: false }));
+
+    let finalQuarterlyStats = {};
+    let totalStats = {};
+
+    if (matchType === 'Training') {
+      // Training Mode: Treat current stats as the full match stats
+      // We'll map it to 'Q1' just so legacy quarterly viewers don't crash, 
+      // or effectively just save it as the stats.
+      finalQuarterlyStats = { 1: { ...currentStats } };
+      totalStats = { ...currentStats };
+    } else {
+      // Match Mode: Aggregate quarters
+      finalQuarterlyStats = quarterlyStats[4] ? quarterlyStats : { ...quarterlyStats, [currentQuarter]: { ...currentStats } };
+
+      totalStats = Object.values(finalQuarterlyStats).reduce((acc, qStats) => {
+        const result = { ...acc };
+        Object.keys(qStats).forEach(key => {
+          result[key] = (result[key] || 0) + (qStats[key] || 0);
+        });
+        return result;
+      }, { ...INITIAL_STATS });
+    }
+
     const newRecord = {
       id: matchNumber,
       date: new Date().toISOString(),
       homeTeam: matchInfo.homeTeam,
       awayTeam: matchInfo.awayTeam,
-      stats: { ...currentStats },
-      duration: `${String(timer.minutes).padStart(2, '0')}:${String(timer.seconds).padStart(2, '0')}`
+      stats: totalStats,
+      quarterlyStats: finalQuarterlyStats,
+      duration: matchType === 'Training' ? 'Training' : `${String(timer.minutes).padStart(2, '0')}:${String(timer.seconds).padStart(2, '0')}`,
+      type: matchType // Save the type
     };
 
     setMatchHistory(prev => [newRecord, ...prev]);
     setMatchNumber(prev => prev + 1);
 
-    // Reset Current Stats & Timer
+    // Reset
     setCurrentStats(INITIAL_STATS);
     setTimer({ minutes: 0, seconds: 0, isRunning: false });
+    setCurrentQuarter(1);
+    setQuarterlyStats({});
+    // We don't reset matchType here, user might want to do multiple training sessions
   };
 
   const resetCurrentStats = () => {
     if (window.confirm('Reset current match stats?')) {
       setCurrentStats(INITIAL_STATS);
       setTimer({ minutes: 0, seconds: 0, isRunning: false });
+      setCurrentQuarter(1);
+      setQuarterlyStats({});
     }
   };
 
@@ -118,6 +182,8 @@ export const MatchProvider = ({ children }) => {
       setCurrentStats(INITIAL_STATS);
       setTimer({ minutes: 0, seconds: 0, isRunning: false });
       setMatchInfo(INITIAL_MATCH_INFO);
+      setCurrentQuarter(1);
+      setQuarterlyStats({});
 
       localStorage.clear(); // Clear all storage
     }
@@ -141,8 +207,14 @@ export const MatchProvider = ({ children }) => {
       currentStats,
       timer,
       matchInfo,
+      currentQuarter,
+      quarterlyStats,
+      matchType,
+      setMatchType,
       startMatch,
-      stopMatch,
+      pauseMatch,
+      endQuarter,
+      finishMatch,
       resetCurrentStats,
       resetApp,
       updateStat,
