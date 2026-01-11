@@ -8,7 +8,9 @@ const ClientView = () => {
     // Helper to sum stats
     const sumStats = (statId) => {
         return ['q1', 'q2', 'q3', 'q4'].reduce((total, q) => {
-            return total + (stats[q]?.[statId] || 0);
+            const val = stats[q]?.[statId] || 0;
+            const count = typeof val === 'object' ? (val.home || 0) : val;
+            return total + count;
         }, 0);
     };
 
@@ -40,8 +42,17 @@ const ClientView = () => {
         </div>
     );
 
+    // Flatten Scores
+    const allScores = [
+        ...(pitchStats.q1?.scores || []),
+        ...(pitchStats.q2?.scores || []),
+        ...(pitchStats.q3?.scores || []),
+        ...(pitchStats.q4?.scores || []),
+        ...(pitchStats.ft?.scores || [])
+    ];
+
     // Recent Activity Feed (Last 10 Scores)
-    const recentScores = [...pitchStats.scores].sort((a, b) => b.id - a.id).slice(0, 5);
+    const recentScores = [...allScores].sort((a, b) => b.id - a.id).slice(0, 5);
 
     return (
         <div style={{ padding: '16px', paddingBottom: '80px' }}>
@@ -68,7 +79,7 @@ const ClientView = () => {
             {/* Pitch Map - Shots */}
             <div style={{ marginBottom: '24px' }}>
                 <h3 style={{ borderBottom: '1px solid #333', paddingBottom: '8px', marginBottom: '12px', color: '#fff', fontSize: '1.1rem' }}>Match Shot Map</h3>
-                <PitchSummary data={pitchStats.scores} type="scores" title="All Shots & Scores" />
+                <PitchSummary data={allScores} type="scores" title="All Shots & Scores" />
             </div>
 
             {/* Recent Activity */}

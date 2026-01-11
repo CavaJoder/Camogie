@@ -135,6 +135,7 @@ export const PlayerAnalysisProvider = ({ children }) => {
         selectedPlayers,
         setSelectedPlayers,
         playerStats,
+        setPlayerStats, // Exposed for external sync
         metrics,
         getPlayerStats,
         incrementStat,

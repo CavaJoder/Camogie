@@ -1,5 +1,7 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useMatch } from '../context/MatchContext';
+import { db } from '../firebase';
+import { ref, set, get, child } from 'firebase/database';
 
 const InputGroup = ({ label, value, onChange, type = 'text', disabled }) => (
     <div style={{ marginBottom: '16px' }}>
@@ -27,8 +29,32 @@ const InputGroup = ({ label, value, onChange, type = 'text', disabled }) => (
 );
 
 const SettingsView = () => {
-    const { matchInfo, updateMatchInfo, timer, resetMatch, goLive, stopLive, matchId, isAdmin } = useMatch();
+    const { matchInfo, updateMatchInfo, timer, resetMatch, goLive, stopLive, matchId, isAdmin, matchList, loadMatchList, loadMatch } = useMatch();
     const isMatchComplete = timer.quarter === 'FT';
+
+    useEffect(() => {
+        loadMatchList();
+    }, []);
+
+    const inspectDatabase = async () => {
+        try {
+            alert(`Inspecting Master Database root 'matches'...`);
+            const snapshot = await get(child(ref(db), 'matches'));
+            if (snapshot.exists()) {
+                const keys = Object.keys(snapshot.val());
+                const preview = keys.map(k => {
+                    const m = snapshot.val()[k];
+                    return `${k}: ${m.matchInfo?.homeTeam} vs ${m.matchInfo?.awayTeam} `;
+                }).join('\n');
+                alert(`MATCHES FOUND(${keys.length}): \n\n${preview} `);
+                console.log(`MATCHES: `, snapshot.val());
+            } else {
+                alert(`DATABASE: No 'matches' node found(Empty).`);
+            }
+        } catch (error) {
+            alert(`Error inspecting DB: ${error.message} `);
+        }
+    };
 
     const handleImageUpload = (e, field) => {
         if (isMatchComplete) return;
@@ -214,6 +240,86 @@ const SettingsView = () => {
 
             <hr style={{ borderColor: '#333', margin: '32px 0' }} />
 
+            {/* Load Saved Match Section */}
+            <h3 style={{ fontSize: '1.2rem', marginBottom: '16px', color: '#bb86fc' }}>Load Saved Match</h3>
+            <div style={{ display: 'flex', gap: '8px', marginBottom: '24px' }}>
+                <select
+                    id="savedMatchSelect"
+                    style={{
+                        flex: 1,
+                        padding: '12px',
+                        backgroundColor: '#1e1e1e',
+                        border: '1px solid #333',
+                        borderRadius: '6px',
+                        color: 'white',
+                        fontSize: '1rem'
+                    }}
+                >
+                    <option value="">-- Select a Match to Load --</option>
+                    {matchList.map(m => (
+                        <option key={m.id} value={m.id}>
+                            {m.homeTeam} vs {m.awayTeam} ({m.date}) - {m.id}
+                        </option>
+                    ))}
+                </select>
+                <button
+                    onClick={() => {
+                        const selected = document.getElementById('savedMatchSelect').value;
+                        if (selected) {
+                            if (window.confirm('Load this match? Current unsaved data will be lost.')) {
+                                loadMatch(selected);
+                            }
+                        }
+                    }}
+                    style={{
+                        padding: '12px 24px',
+                        backgroundColor: '#bb86fc',
+                        color: 'black',
+                        fontWeight: 'bold',
+                        borderRadius: '6px',
+                        border: 'none',
+                        cursor: 'pointer'
+                    }}
+                >
+                    Load
+                </button>
+                <button
+                    onClick={async () => {
+                        const testId = "debug_" + Math.floor(Math.random() * 10000);
+                        try {
+                            if (window.confirm("Create a test match to verify database connection?")) {
+                                await set(ref(db, `matches / ${testId} `), {
+                                    matchInfo: {
+                                        homeTeam: "Debug Home",
+                                        awayTeam: "Debug Away",
+                                        date: new Date().toISOString().split('T')[0]
+                                    },
+                                    timestamp: Date.now()
+                                });
+                                alert(`Success! Created match ${testId}. Refreshing list...`);
+                                loadMatchList();
+                            }
+                        } catch (e) {
+                            alert("Firebase Error: " + e.message);
+                            console.error(e);
+                        }
+                    }}
+                    style={{
+                        padding: '12px 24px',
+                        backgroundColor: '#03dac6',
+                        color: 'black',
+                        fontWeight: 'bold',
+                        borderRadius: '6px',
+                        border: 'none',
+                        cursor: 'pointer'
+                    }}
+                >
+                    Create Test Match
+                </button>
+            </div>
+
+            <hr style={{ borderColor: '#333', margin: '32px 0' }} />
+
             {/* Real-Time Sync Section */}
             <h3 style={{ fontSize: '1.2rem', marginBottom: '16px', color: '#03dac6' }}>Real-Time Sync (Beta)</h3>
 
@@ -305,7 +411,112 @@ const SettingsView = () => {
                 </div>
             )}
 
-        </div>
+            {/* Connection Status Debug */}
+            <div style={{ padding: '10px', backgroundColor: '#333', marginBottom: '20px', borderRadius: '8px', fontSize: '0.9rem', color: '#b0b0b0' }}>
+                <strong style={{ color: 'white' }}>Connection Status:</strong>
+                <div style={{ marginLeft: '10px', marginTop: '5px' }}>
+                    <div>Matches Loaded: <span style={{ color: '#03dac6', fontWeight: 'bold' }}>{matchList.length}</span></div>
+                    <div>Source: <span style={{ color: '#bb86fc', fontWeight: 'bold' }}>Master Database</span></div>
+                </div>
+            </div>
+
+
+            <div style={{ padding: '15px', backgroundColor: '#333', borderRadius: '8px', marginBottom: '20px', border: '1px solid #555' }}>
+                <h3 style={{ marginTop: 0, color: '#ff9800' }}>Database Inspector (Advanced)</h3>
+                <p style={{ fontSize: '0.8rem', color: '#ccc' }}>Directly check what matches exist in the Master database.</p>
+                <div style={{ display: 'flex', gap: '10px' }}>
+                    <button
+                        onClick={inspectDatabase}
+                        style={{ padding: '10px', backgroundColor: '#4caf50', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', flex: 1, fontWeight: 'bold' }}
+                    >
+                        List Matches
+                    </button>
+                </div>
+            </div>
+
+            {/* Match Diagnostics Section */}
+            <h3 style={{ fontSize: '1.2rem', marginBottom: '16px', color: '#ffb74d', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                Match Diagnostics
+                <button
+                    onClick={loadMatchList}
+                    style={{
+                        padding: '6px 12px',
+                        fontSize: '0.8rem',
+                        backgroundColor: '#333',
+                        color: 'white',
+                        border: '1px solid #555',
+                        borderRadius: '4px',
+                        cursor: 'pointer'
+                    }}
+                >
+                    Refresh List
+                </button>
+            </h3>
+            <div style={{ padding: '16px', backgroundColor: '#2d2d2d', borderRadius: '8px', border: '1px solid #ffb74d' }}>
+                <select
+                    id="diagMatchSelect"
+                    style={{
+                        width: '100%',
+                        padding: '12px',
+                        backgroundColor: '#1e1e1e',
+                        border: '1px solid #333',
+                        borderRadius: '6px',
+                        color: 'white',
+                        marginBottom: '10px'
+                    }}
+                >
+                    <option value="">-- Select Match to Diagnose --</option>
+                    {matchList.map(m => (
+                        <option key={m.id} value={m.id}>
+                            {m.homeTeam} vs {m.awayTeam} ({m.date}) - {m.id}
+                        </option>
+                    ))}
+                </select>
+                <button
+                    onClick={async () => {
+                        const id = document.getElementById('diagMatchSelect').value;
+                        if (!id) return;
+                        const output = document.getElementById('diagOutput');
+                        output.innerHTML = "Analyzing...";
+                        try {
+                            const snapshot = await get(child(ref(db), `matches / ${id} `));
+                            if (snapshot.exists()) {
+                                const data = snapshot.val();
+                                const report = [
+                                    `SOURCE: Master DB`,
+                                    `Match ID: ${id} `,
+                                    `Match Info: ${data.matchInfo ? `Present (${data.matchInfo.homeTeam} vs ${data.matchInfo.awayTeam})` : 'MISSING'} `,
+                                    `Stats: ${data.stats ? `Present (Scores: ${Object.keys(data.stats).length} qtrs)` : 'MISSING'} `,
+                                    `Pitch Events: ${data.pitchStats ? `Present` : 'MISSING'} `,
+                                    `Player Pressure(Heatmap): ${data.playerPressureStats ? `Present (${Array.isArray(data.playerPressureStats) ? data.playerPressureStats.length : Object.keys(data.playerPressureStats).length} players)` : 'MISSING'} `,
+                                    `Analysis Data: ${data.playerAnalysis ? 'Present (playerAnalysis)' : (data.playAnalysis ? 'Present (playAnalysis)' : 'MISSING')} `,
+                                    `Heatmap: ${data.heatMapEvents ? `Present (Q1:${(data.heatMapEvents.q1 || []).length}, Q2:${(data.heatMapEvents.q2 || []).length}, Q3:${(data.heatMapEvents.q3 || []).length}, Q4:${(data.heatMapEvents.q4 || []).length})` : 'MISSING'} `,
+                                    `Timer: ${data.timer ? `Present (${data.timer.quarter})` : 'MISSING'} `
+                                ];
+                                output.innerHTML = report.join('<br/>');
+                            } else {
+                                output.innerHTML = "Match ID not found in database.";
+                            }
+                        } catch (err) {
+                            output.innerHTML = "Error: " + err.message;
+                        }
+                    }}
+                    style={{
+                        width: '100%',
+                        padding: '10px',
+                        backgroundColor: '#ffb74d',
+                        color: 'black',
+                        fontWeight: 'bold',
+                        border: 'none',
+                        borderRadius: '6px',
+                        cursor: 'pointer'
+                    }}
+                >
+                    Run Diagnostic
+                </button>
+                <div id="diagOutput" style={{ marginTop: '10px', color: '#ccc', fontFamily: 'monospace', fontSize: '0.9rem', lineHeight: '1.4' }}></div>
+            </div>
+        </div >
     );
 };
 

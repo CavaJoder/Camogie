@@ -6,14 +6,28 @@ import ScoresView from './ScoresView';
 import PuckoutsView from './PuckoutsView';
 
 const RecordView = () => {
-    const { stats, timer, updateStat, addPitchEvent, matchInfo } = useMatch();
+    const { stats, timer, updateStat, addPitchEvent, matchInfo, setQuarter } = useMatch();
     const [freeLocation, setFreeLocation] = React.useState('Middle');
     const [freeType, setFreeType] = React.useState('Other');
 
     // Helper to get current count safely
     const getCount = (id) => {
+        if (timer.quarter === 'FT') {
+            // Sum all quarters for FT view
+            return ['q1', 'q2', 'q3', 'q4'].reduce((total, q) => {
+                const qStats = stats[q] || {};
+                const statVal = qStats[id] || { home: 0, away: 0 };
+                // Sum home value (assuming these buttons track 'home' perspective mainly)
+                // If it's something like 'oppPossessions', it's still stored under 'home' key typically if generic?
+                // Let's check updateStat logic below.
+                const val = typeof statVal === 'object' ? (statVal.home || 0) : statVal;
+                return total + val;
+            }, 0);
+        }
         const currentQStats = stats[timer.quarter.toLowerCase()] || {};
-        return currentQStats[id] || 0;
+        const statVal = currentQStats[id] || { home: 0, away: 0 };
+        // Return number (home value)
+        return typeof statVal === 'object' ? (statVal.home || 0) : statVal;
     };
 
     const categories = [
@@ -69,8 +83,69 @@ const RecordView = () => {
         }
     ];
 
+    // Add Read-Only Mode Check
+    const isReadOnly = timer.quarter === 'FT';
+
     return (
         <div style={{ padding: '16px', paddingTop: '32px', paddingBottom: '80px' }}>
+            {/* Quarter Selector for Editing */}
+            <div style={{ marginBottom: '20px', padding: '12px', backgroundColor: '#1e1e1e', borderRadius: '8px', border: '1px solid #333' }}>
+                <label style={{ color: '#b0b0b0', display: 'block', marginBottom: '8px', fontSize: '0.9rem' }}>
+                    Active Quarter (Editing Record)
+                </label>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                    {['Q1', 'Q2', 'Q3', 'Q4', 'FT'].map(q => (
+                        <button
+                            key={q}
+                            onClick={() => {
+                                if (timer.quarter !== q) {
+                                    setQuarter(q);
+                                }
+                            }}
+                            style={{
+                                flex: 1,
+                                padding: '8px',
+                                backgroundColor: timer.quarter === q ? '#bb86fc' : '#333',
+                                color: timer.quarter === q ? '#000' : '#fff',
+                                border: 'none',
+                                borderRadius: '4px',
+                                fontWeight: 'bold',
+                                cursor: 'pointer'
+                            }}
+                        >
+                            {q}
+                        </button>
+                    ))}
+                </div>
+            </div>
+
+            {/* Read-Only Warning Banner */}
+            {isReadOnly && (
+                <div style={{
+                    backgroundColor: 'rgba(207, 102, 121, 0.1)',
+                    border: '1px solid #cf6679',
+                    borderRadius: '8px',
+                    padding: '12px',
+                    marginBottom: '24px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '10px'
+                }}>
+                    <div style={{ color: '#cf6679' }}>
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <line x1="12" y1="8" x2="12" y2="12"></line>
+                            <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                        </svg>
+                    </div>
+                    <div>
+                        <div style={{ color: '#cf6679', fontWeight: 'bold', fontSize: '0.9rem' }}>Read-Only View</div>
+                        <div style={{ color: '#b0b0b0', fontSize: '0.8rem' }}>
+                            Select a specific quarter (Q1-Q4) above to edit statistics for that period.
+                        </div>
+                    </div>
+                </div>
+            )}
             {categories.map((cat, index) => (
                 <div key={index} style={{ marginBottom: '24px' }}>
                     <h3 style={{
@@ -93,8 +168,9 @@ const RecordView = () => {
                                 label={item.label}
                                 count={getCount(item.id)}
                                 color={item.color}
-                                onIncrement={() => updateStat(item.id, 1)}
-                                onDecrement={() => updateStat(item.id, -1)}
+                                disabled={isReadOnly}
+                                onIncrement={() => !isReadOnly && updateStat(timer.quarter.toLowerCase(), item.id, 'home', 1)}
+                                onDecrement={() => !isReadOnly && updateStat(timer.quarter.toLowerCase(), item.id, 'home', -1)}
                             />
                         ))}
                     </div>
@@ -152,11 +228,14 @@ const RecordView = () => {
                             label="Free Conceded"
                             count={getCount('freeConcededHome')}
                             color="#cf6679"
+                            disabled={isReadOnly}
                             onIncrement={() => {
-                                updateStat('freeConcededHome', 1);
-                                addPitchEvent('frees', { team: 'home', location: freeLocation, type: freeType });
+                                if (!isReadOnly) {
+                                    updateStat(timer.quarter.toLowerCase(), 'freeConcededHome', 'home', 1);
+                                    addPitchEvent(timer.quarter.toLowerCase(), 'frees', { team: 'home', location: freeLocation, type: freeType, quarter: timer.quarter });
+                                }
                             }}
-                            onDecrement={() => updateStat('freeConcededHome', -1)}
+                            onDecrement={() => !isReadOnly && updateStat(timer.quarter.toLowerCase(), 'freeConcededHome', 'home', -1)}
                         />
                     </div>
 
@@ -169,11 +248,14 @@ const RecordView = () => {
                             label="Free Conceded"
                             count={getCount('freeConcededAway')}
                             color="#cf6679"
+                            disabled={isReadOnly}
                             onIncrement={() => {
-                                updateStat('freeConcededAway', 1);
-                                addPitchEvent('frees', { team: 'away', location: freeLocation, type: freeType });
+                                if (!isReadOnly) {
+                                    updateStat(timer.quarter.toLowerCase(), 'freeConcededAway', 'away', 1); // Note: using 'away' team bucket for clarity
+                                    addPitchEvent(timer.quarter.toLowerCase(), 'frees', { team: 'away', location: freeLocation, type: freeType, quarter: timer.quarter });
+                                }
                             }}
-                            onDecrement={() => updateStat('freeConcededAway', -1)}
+                            onDecrement={() => !isReadOnly && updateStat(timer.quarter.toLowerCase(), 'freeConcededAway', 'away', -1)}
                         />
                     </div>
                 </div>
@@ -181,11 +263,11 @@ const RecordView = () => {
 
             <hr style={{ borderColor: '#333', margin: '32px 0' }} />
 
-            <ScoresView />
+            <ScoresView readOnly={isReadOnly} />
 
             <hr style={{ borderColor: '#333', margin: '32px 0' }} />
 
-            <PuckoutsView />
+            <PuckoutsView readOnly={isReadOnly} />
         </div>
     );
 };

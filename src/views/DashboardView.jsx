@@ -8,7 +8,7 @@ const DashboardView = () => {
     const { stats, timer, matchInfo, pitchStats } = useMatch();
     const [isPdfMode, setIsPdfMode] = useState(false);
     const [showPitchesInPdf, setShowPitchesInPdf] = useState(true);
-    const [showFreesInPdf, setShowFreesInPdf] = useState(true);
+    const [showFreesInPdf, setShowFreesInPdf] = useState(false);
 
     // Filter Pitch Stats by Half
     const firstHalfScores = (pitchStats?.scores || []).filter(s => ['Q1', 'Q2'].includes(s.quarter));
@@ -16,10 +16,16 @@ const DashboardView = () => {
     const firstHalfPuckouts = (pitchStats?.puckouts || []).filter(p => ['Q1', 'Q2'].includes(p.quarter));
     const secondHalfPuckouts = (pitchStats?.puckouts || []).filter(p => ['Q3', 'Q4', 'FT'].includes(p.quarter));
 
+    // Helper to safely get stat value (number or object.home)
+    const getStatValue = (q, statId) => {
+        const val = stats[q]?.[statId] || 0;
+        return typeof val === 'object' ? (val.home || 0) : val;
+    };
+
     // Helper to sum stats across specific quarters
     const sumStats = (statId, quarters = ['q1', 'q2', 'q3', 'q4']) => {
         return quarters.reduce((total, q) => {
-            return total + (stats[q]?.[statId] || 0);
+            return total + getStatValue(q, statId);
         }, 0);
     };
 
@@ -68,14 +74,14 @@ const DashboardView = () => {
     // Pressure Bar Chart Data (Quarterly)
     const pressureBarData = ['q1', 'q2', 'q3', 'q4'].map(q => ({
         name: q.toUpperCase(),
-        Possessions: stats[q]?.oppPossessions || 0,
-        Pressures: stats[q]?.pressures || 0
+        Possessions: getStatValue(q, 'oppPossessions'),
+        Pressures: getStatValue(q, 'pressures')
     }));
 
     // Ruck Bar Chart Data (Quarterly)
     const ruckBarData = ['q1', 'q2', 'q3', 'q4'].map(q => {
-        const total = (stats[q]?.defRuck || 0) + (stats[q]?.midRuck || 0) + (stats[q]?.offRuck || 0);
-        const won = (stats[q]?.defRuckWon || 0) + (stats[q]?.midRuckWon || 0) + (stats[q]?.offRuckWon || 0);
+        const total = getStatValue(q, 'defRuck') + getStatValue(q, 'midRuck') + getStatValue(q, 'offRuck');
+        const won = getStatValue(q, 'defRuckWon') + getStatValue(q, 'midRuckWon') + getStatValue(q, 'offRuckWon');
         return {
             name: q.toUpperCase(),
             Total: total,
@@ -86,12 +92,12 @@ const DashboardView = () => {
     // Zone Ruck Data (New Chart)
     const zoneRuckData = ['q1', 'q2', 'q3', 'q4'].map(q => ({
         name: q.toUpperCase(),
-        defWon: stats[q]?.defRuckWon || 0,
-        defLost: (stats[q]?.defRuck || 0) - (stats[q]?.defRuckWon || 0),
-        midWon: stats[q]?.midRuckWon || 0,
-        midLost: (stats[q]?.midRuck || 0) - (stats[q]?.midRuckWon || 0),
-        offWon: stats[q]?.offRuckWon || 0,
-        offLost: (stats[q]?.offRuck || 0) - (stats[q]?.offRuckWon || 0),
+        defWon: getStatValue(q, 'defRuckWon'),
+        defLost: getStatValue(q, 'defRuck') - getStatValue(q, 'defRuckWon'),
+        midWon: getStatValue(q, 'midRuckWon'),
+        midLost: getStatValue(q, 'midRuck') - getStatValue(q, 'midRuckWon'),
+        offWon: getStatValue(q, 'offRuckWon'),
+        offLost: getStatValue(q, 'offRuck') - getStatValue(q, 'offRuckWon'),
     }));
 
     // Puckout Data
@@ -166,43 +172,43 @@ const DashboardView = () => {
 
         quarters.forEach(q => {
             if (type === 'rucks') {
-                const rucks = (stats[q]?.defRuck || 0) + (stats[q]?.midRuck || 0) + (stats[q]?.offRuck || 0);
-                const won = (stats[q]?.defRuckWon || 0) + (stats[q]?.midRuckWon || 0) + (stats[q]?.offRuckWon || 0);
+                const rucks = getStatValue(q, 'defRuck') + getStatValue(q, 'midRuck') + getStatValue(q, 'offRuck');
+                const won = getStatValue(q, 'defRuckWon') + getStatValue(q, 'midRuckWon') + getStatValue(q, 'offRuckWon');
                 value += won;
                 total += rucks;
             } else if (type === 'possession') {
-                const oppPoss = stats[q]?.oppPossessions || 0;
-                const pressures = stats[q]?.pressures || 0;
+                const oppPoss = getStatValue(q, 'oppPossessions');
+                const pressures = getStatValue(q, 'pressures');
                 value += pressures;
                 total += oppPoss;
             } else if (type === 'attack') {
-                const shots = stats[q]?.shotTaken || 0;
-                const score = stats[q]?.score || 0;
+                const shots = getStatValue(q, 'shotTaken');
+                const score = getStatValue(q, 'score');
                 value += score;
                 total += shots;
             } else if (type === 'puckouts') {
-                const tot = (stats[q]?.oppPuckout || 0) + (stats[q]?.ownPuckout || 0);
-                const won = (stats[q]?.oppPuckoutWon || 0) + (stats[q]?.ownPuckoutWon || 0);
+                const tot = getStatValue(q, 'oppPuckout') + getStatValue(q, 'ownPuckout');
+                const won = getStatValue(q, 'oppPuckoutWon') + getStatValue(q, 'ownPuckoutWon');
                 value += won;
                 total += tot;
             } else if (type === 'conversion') {
-                const entries = stats[q]?.ballInside65 || 0;
-                const shots = stats[q]?.shotTaken || 0;
+                const entries = getStatValue(q, 'ballInside65');
+                const shots = getStatValue(q, 'shotTaken');
                 value += shots;
                 total += entries;
             } else if (type === 'efficiency') {
-                const shots = stats[q]?.shotTaken || 0;
-                const score = stats[q]?.score || 0;
+                const shots = getStatValue(q, 'shotTaken');
+                const score = getStatValue(q, 'score');
                 value += score;
                 total += shots;
             } else if (type === 'scoring') {
-                const shots = stats[q]?.shotTaken || 0;
-                const scores = stats[q]?.score || 0;
+                const shots = getStatValue(q, 'shotTaken');
+                const scores = getStatValue(q, 'score');
                 value += scores;
                 total += shots;
             } else if (type === 'freeRate') {
-                const frees = stats[q]?.freesAgainst || 0;
-                const pressures = stats[q]?.pressures || 0;
+                const frees = getStatValue(q, 'freesAgainst');
+                const pressures = getStatValue(q, 'pressures');
                 value += frees;
                 total += pressures;
             }
@@ -289,10 +295,10 @@ const DashboardView = () => {
     };
 
     const StatRow = ({ label, statId }) => {
-        const q1 = stats.q1?.[statId] || 0;
-        const q2 = stats.q2?.[statId] || 0;
-        const q3 = stats.q3?.[statId] || 0;
-        const q4 = stats.q4?.[statId] || 0;
+        const q1 = getStatValue('q1', statId);
+        const q2 = getStatValue('q2', statId);
+        const q3 = getStatValue('q3', statId);
+        const q4 = getStatValue('q4', statId);
         const total = q1 + q2 + q3 + q4;
 
         return (
@@ -315,8 +321,8 @@ const DashboardView = () => {
 
     const CalculatedRow = ({ label, numeratorId, denominatorId }) => {
         const getPctValue = (q) => {
-            const num = stats[q]?.[numeratorId] || 0;
-            const den = stats[q]?.[denominatorId] || 0;
+            const num = getStatValue(q, numeratorId);
+            const den = getStatValue(q, denominatorId);
             return den > 0 ? Math.round((num / den) * 100) : null;
         };
 
@@ -325,8 +331,8 @@ const DashboardView = () => {
         const q3Val = getPctValue('q3');
         const q4Val = getPctValue('q4');
 
-        const totalNum = (stats.q1?.[numeratorId] || 0) + (stats.q2?.[numeratorId] || 0) + (stats.q3?.[numeratorId] || 0) + (stats.q4?.[numeratorId] || 0);
-        const totalDen = (stats.q1?.[denominatorId] || 0) + (stats.q2?.[denominatorId] || 0) + (stats.q3?.[denominatorId] || 0) + (stats.q4?.[denominatorId] || 0);
+        const totalNum = getStatValue('q1', numeratorId) + getStatValue('q2', numeratorId) + getStatValue('q3', numeratorId) + getStatValue('q4', numeratorId);
+        const totalDen = getStatValue('q1', denominatorId) + getStatValue('q2', denominatorId) + getStatValue('q3', denominatorId) + getStatValue('q4', denominatorId);
         const totalVal = totalDen > 0 ? Math.round((totalNum / totalDen) * 100) : null;
 
         return (

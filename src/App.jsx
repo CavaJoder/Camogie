@@ -17,8 +17,9 @@ import PlayerAnalysisView from './views/PlayerAnalysisView';
 import ManualEntryView from './views/ManualEntryView';
 import ManualDashboardView from './views/ManualDashboardView';
 import ClientView from './views/ClientView';
+import TeamSheetsView from './views/TeamSheetsView';
+import HeatMapView from './views/HeatMapView';
 
-// Inner component to access context
 const MainContent = () => {
   const [activeTab, setActiveTab] = useState('record');
   const { isLive, isAdmin } = useMatch();
@@ -27,8 +28,7 @@ const MainContent = () => {
   const isClient = isLive && !isAdmin;
 
   const renderView = () => {
-    // If client mode, hijack the 'record' view (and others if we want strict mode)
-    // For now, let's just make the default landing view the Client View
+    // If client mode, hijack the 'record' view
     if (isClient && activeTab === 'record') {
       return <ClientView />;
     }
@@ -44,15 +44,13 @@ const MainContent = () => {
       case 'playerAnalysis': return <PlayerAnalysisView />;
       case 'manual': return <ManualEntryView />;
       case 'manualDashboard': return <ManualDashboardView />;
+      case 'teamSheets': return <TeamSheetsView />;
+      case 'heatMap': return <HeatMapView />;
       default: return <RecordView />;
     }
   };
 
-  // For clients, we might want to hide some tabs in BottomNav?
-  // Let's pass isClient prop to BottomNav if needed, or just let them explore read-only views.
-  // For now, simple implementation: just override the Record view.
-
-  const isFullScreen = ['playerAnalysis', 'squads', 'settings'].includes(activeTab);
+  const isFullScreen = ['playerAnalysis', 'squads', 'settings', 'teamSheets', 'heatMap'].includes(activeTab);
 
   return (
     <div style={{ paddingTop: isFullScreen ? '0px' : '180px' }}>

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
+import Papa from 'papaparse';
 import { useSquad } from '../context/SquadContext';
-import { Plus, Edit2, Trash2, X, Upload, Users as UsersIcon } from 'lucide-react';
+import { Plus, Edit2, Trash2, X, Upload, Users as UsersIcon, Download } from 'lucide-react';
 
 const SquadsView = () => {
     const {
@@ -25,10 +26,12 @@ const SquadsView = () => {
     // Squad form state
     const [squadName, setSquadName] = useState('');
     const [squadLogo, setSquadLogo] = useState(null);
+    const [squadColor, setSquadColor] = useState('#bb86fc');
 
     // Player form state
     const [playerName, setPlayerName] = useState('');
     const [playerNumber, setPlayerNumber] = useState('');
+    const [playerClub, setPlayerClub] = useState('');
     const [playerPositions, setPlayerPositions] = useState([]);
 
     const selectedSquad = selectedSquadId ? getSquad(selectedSquadId) : null;
@@ -51,9 +54,10 @@ const SquadsView = () => {
             alert('Please enter a squad name');
             return;
         }
-        const newSquadId = createSquad(squadName, squadLogo);
+        const newSquadId = createSquad(squadName, squadLogo, squadColor);
         setSquadName('');
         setSquadLogo(null);
+        setSquadColor('#bb86fc');
         setShowSquadForm(false);
         setSelectedSquadId(newSquadId);
     };
@@ -63,9 +67,10 @@ const SquadsView = () => {
             alert('Please enter a squad name');
             return;
         }
-        updateSquad(editingSquad, { name: squadName, logo: squadLogo });
+        updateSquad(editingSquad, { name: squadName, logo: squadLogo, themeColor: squadColor });
         setSquadName('');
         setSquadLogo(null);
+        setSquadColor('#bb86fc');
         setEditingSquad(null);
         setShowSquadForm(false);
     };
@@ -80,6 +85,7 @@ const SquadsView = () => {
         setEditingSquad(squad.id);
         setSquadName(squad.name);
         setSquadLogo(squad.logo);
+        setSquadColor(squad.themeColor || '#bb86fc');
         setShowSquadForm(true);
     };
 
@@ -93,6 +99,7 @@ const SquadsView = () => {
         const playerData = {
             name: playerName,
             number: playerNumber ? parseInt(playerNumber) : null,
+            club: playerClub,
             positions: playerPositions
         };
 
@@ -114,7 +121,8 @@ const SquadsView = () => {
     const openEditPlayer = (player) => {
         setEditingPlayer(player.id);
         setPlayerName(player.name);
-        setPlayerNumber(player.number.toString());
+        setPlayerNumber(player.number ? player.number.toString() : '');
+        setPlayerClub(player.club || '');
         setPlayerPositions(player.positions);
         setShowPlayerForm(true);
     };
@@ -122,6 +130,7 @@ const SquadsView = () => {
     const resetPlayerForm = () => {
         setPlayerName('');
         setPlayerNumber('');
+        setPlayerClub('');
         setPlayerPositions([]);
         setEditingPlayer(null);
         setShowPlayerForm(false);
@@ -130,6 +139,7 @@ const SquadsView = () => {
     const resetSquadForm = () => {
         setSquadName('');
         setSquadLogo(null);
+        setSquadColor('#bb86fc');
         setEditingSquad(null);
         setShowSquadForm(false);
     };
@@ -247,6 +257,19 @@ const SquadsView = () => {
                                         <img src={squadLogo} alt="Squad logo preview" style={{ maxWidth: '100px', maxHeight: '100px', borderRadius: '8px' }} />
                                     </div>
                                 )}
+                            </div>
+
+                            <div style={{ marginBottom: '20px' }}>
+                                <label style={{ display: 'block', color: '#b0b0b0', marginBottom: '8px' }}>Theme Color</label>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                    <input
+                                        type="color"
+                                        value={squadColor}
+                                        onChange={(e) => setSquadColor(e.target.value)}
+                                        style={{ border: 'none', width: '40px', height: '40px', cursor: 'pointer', backgroundColor: 'transparent' }}
+                                    />
+                                    <span style={{ color: '#fff' }}>{squadColor}</span>
+                                </div>
                             </div>
 
                             <div style={{ display: 'flex', gap: '10px' }}>
@@ -377,44 +400,82 @@ const SquadsView = () => {
         const file = e.target.files[0];
         if (!file) return;
 
-        const reader = new FileReader();
-        reader.onload = (event) => {
-            const text = event.target.result;
-            const lines = text.split('\n');
+        Papa.parse(file, {
+            header: true,
+            skipEmptyLines: true,
+            transformHeader: h => h.trim(),
+            complete: (results) => {
+                let addedCount = 0;
+                results.data.forEach(row => {
+                    // Try to match keys (case insensitive fallback via ||)
+                    const name = row.Name || row.name;
+                    if (!name) return;
 
-            let addedCount = 0;
+                    const club = row.Club || row.club || '';
+                    const number = parseInt(row.Number || row.number) || null;
 
-            lines.forEach(line => {
-                if (!line.trim()) return;
+                    let positions = [];
+                    const rawPos = row.Positions || row.positions || row.Position || row.position || '';
+                    if (rawPos) {
+                        // Split by common delimiters: , ; | /
+                        // Removed strict 'validPositions' check to allow flexibility
+                        positions = rawPos.split(/[,;|/]+/).map(p => p.trim()).filter(p => p.length > 0);
+                    }
 
-                const parts = line.split(',').map(part => part.trim());
-                if (parts.length === 0) return;
+                    const playerData = {
+                        name: name,
+                        number: number,
+                        club: club,
+                        positions: positions
+                    };
 
-                const name = parts[0];
-                if (!name) return;
+                    addPlayer(selectedSquadId, playerData);
+                    addedCount++;
+                });
 
-                const positions = parts.slice(1).filter(p => p && validPositions.includes(p));
-
-                const playerData = {
-                    name: name,
-                    number: null,
-                    positions: positions
-                };
-
-                addPlayer(selectedSquadId, playerData);
-                addedCount++;
-            });
-
-            if (addedCount > 0) {
-                alert(`Successfully imported ${addedCount} players`);
-            } else {
-                alert('No valid players found in CSV');
+                if (results.data.length > 0 && addedCount === 0) {
+                    // Fallback for headerless CSV?
+                    // Or alert user?
+                    // Let's keep it simple for now, if headers missing, it fails.
+                    alert("Import finished. Ensure CSV has headers: Name, Number, Club, Positions");
+                } else {
+                    alert(`Successfully imported ${addedCount} players`);
+                }
+            },
+            error: (err) => {
+                console.error("CSV Error:", err);
+                alert("Error parsing CSV file");
             }
+        });
 
-            // Reset file input
-            e.target.value = '';
-        };
-        reader.readAsText(file);
+        // Reset file input
+        e.target.value = '';
+    };
+
+    // CSV Export
+    const handleCsvExport = () => {
+        if (!selectedSquad || selectedSquad.players.length === 0) {
+            alert("No players to export.");
+            return;
+        }
+
+        const headers = ["Name", "Number", "Club", "Positions"];
+        const rows = selectedSquad.players.map(p => [
+            p.name,
+            p.number || '',
+            p.club || '',
+            `"${p.positions.join(',')}"` // Quote to handle commas in CSV
+        ]);
+
+        const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\\n');
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.setAttribute('href', url);
+        link.setAttribute('download', `${selectedSquad.name.replace(/ /g, '_')}_Squad.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
     };
 
     // Render squad detail view with players
@@ -492,6 +553,24 @@ const SquadsView = () => {
                         <Upload size={20} />
                         Import CSV
                     </label>
+
+                    <button
+                        onClick={handleCsvExport}
+                        style={{
+                            backgroundColor: '#03dac6',
+                            color: 'black',
+                            padding: '10px 20px',
+                            borderRadius: '8px',
+                            fontWeight: 'bold',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            cursor: 'pointer'
+                        }}
+                    >
+                        <Download size={20} />
+                        Export CSV
+                    </button>
                 </div>
             </div>
 
@@ -534,6 +613,24 @@ const SquadsView = () => {
                                 value={playerName}
                                 onChange={(e) => setPlayerName(e.target.value)}
                                 placeholder="Enter player name"
+                                style={{
+                                    width: '100%',
+                                    padding: '10px',
+                                    backgroundColor: '#2d2d2d',
+                                    border: '1px solid #444',
+                                    borderRadius: '4px',
+                                    color: '#fff'
+                                }}
+                            />
+                        </div>
+
+                        <div style={{ marginBottom: '20px' }}>
+                            <label style={{ display: 'block', color: '#b0b0b0', marginBottom: '8px' }}>Club (Optional)</label>
+                            <input
+                                type="text"
+                                value={playerClub}
+                                onChange={(e) => setPlayerClub(e.target.value)}
+                                placeholder="Enter club name"
                                 style={{
                                     width: '100%',
                                     padding: '10px',
@@ -626,15 +723,16 @@ const SquadsView = () => {
                 <div style={{ marginTop: '20px' }}>
                     <div style={{
                         display: 'grid',
-                        gridTemplateColumns: '1fr 2fr auto',
+                        gridTemplateColumns: '1fr 1.5fr 1.5fr auto',
                         gap: '10px',
                         padding: '12px',
                         backgroundColor: '#2d2d2d',
                         borderRadius: '8px 8px 0 0',
                         fontWeight: 'bold',
-                        color: '#bb86fc'
+                        color: selectedSquad.themeColor || '#bb86fc'
                     }}>
                         <div>Name</div>
+                        <div>Club</div>
                         <div>Positions</div>
                         <div>Actions</div>
                     </div>
@@ -645,7 +743,7 @@ const SquadsView = () => {
                                 key={player.id}
                                 style={{
                                     display: 'grid',
-                                    gridTemplateColumns: '1fr 2fr auto',
+                                    gridTemplateColumns: '1fr 1.5fr 1.5fr auto',
                                     gap: '10px',
                                     padding: '12px',
                                     backgroundColor: '#1e1e1e',
@@ -653,7 +751,8 @@ const SquadsView = () => {
                                     alignItems: 'center'
                                 }}
                             >
-                                <div style={{ color: '#fff' }}>{player.name}</div>
+                                <div style={{ color: '#fff' }}>{player.name} <span style={{ fontSize: '0.8em', color: '#888' }}>({player.number || '-'})</span></div>
+                                <div style={{ color: '#b0b0b0', fontSize: '0.85rem' }}>{player.club || '-'}</div>
                                 <div style={{ color: '#b0b0b0', fontSize: '0.85rem' }}>
                                     {player.positions.length > 0 ? player.positions.join(', ') : 'No positions assigned'}
                                 </div>

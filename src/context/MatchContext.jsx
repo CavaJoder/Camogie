@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { db } from '../firebase';
-import { ref, set, onValue } from 'firebase/database';
+import { ref, set, onValue, get, query, orderByKey, limitToLast, child } from 'firebase/database';
 
 const MatchContext = createContext();
 
@@ -21,6 +21,12 @@ const INITIAL_MATCH_INFO = {
   homeTeamColor: '#bb86fc',
   awayTeamColor: '#bb86fc'
 };
+
+const INITIAL_HEATMAP_EVENTS = {
+  q1: [], q2: [], q3: [], q4: []
+};
+
+const INITIAL_PLAYER_PRESSURE_STATS = [];
 
 export const MatchProvider = ({ children }) => {
   // Timer State
@@ -44,7 +50,31 @@ export const MatchProvider = ({ children }) => {
   // Pitch Stats State (Scores, Puckouts, Frees)
   const [pitchStats, setPitchStats] = useState(() => {
     const saved = localStorage.getItem('match_pitch_stats');
-    return saved ? JSON.parse(saved) : { scores: [], puckouts: [], frees: [] };
+    return saved ? JSON.parse(saved) : {
+      q1: { scores: [], puckouts: [], frees: [] },
+      q2: { scores: [], puckouts: [], frees: [] },
+      q3: { scores: [], puckouts: [], frees: [] },
+      q4: { scores: [], puckouts: [], frees: [] }
+    };
+  });
+
+  // Heat Map Events State (New)
+  const [heatMapEvents, setHeatMapEvents] = useState(() => {
+    const saved = localStorage.getItem('match_heatmap_events');
+    return saved ? JSON.parse(saved) : INITIAL_HEATMAP_EVENTS;
+  });
+
+  // Use a Ref to hold the latest heatMapEvents for the listener to write back atomically if needed
+  const heatMapEventsRef = useRef(heatMapEvents);
+  useEffect(() => {
+    heatMapEventsRef.current = heatMapEvents;
+  }, [heatMapEvents]);
+
+
+  // Player Pressure Stats (New)
+  const [playerPressureStats, setPlayerPressureStats] = useState(() => {
+    const saved = localStorage.getItem('match_player_pressure_stats');
+    return saved ? JSON.parse(saved) : INITIAL_PLAYER_PRESSURE_STATS;
   });
 
   // Manual Entry State
@@ -63,242 +93,410 @@ export const MatchProvider = ({ children }) => {
     };
   });
 
-  // Real-Time Sync State
-  const [matchId, setMatchId] = useState(() => localStorage.getItem('match_id') || '');
-  const [isLive, setIsLive] = useState(() => localStorage.getItem('is_live') === 'true');
-  const [isAdmin, setIsAdmin] = useState(() => localStorage.getItem('is_admin') === 'true'); // True if we are the ones broadcasting
 
-  const timerIntervalRef = useRef(null);
+  // Live Sync State
+  const [matchId, setMatchId] = useState(null);
+  const [isLive, setIsLive] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
 
-  // Sync Effect
+  // Saved Match List
+  const [matchList, setMatchList] = useState([]);
+
+  // Effects for LocalStorage
+  useEffect(() => localStorage.setItem('match_timer', JSON.stringify(timer)), [timer]);
+  useEffect(() => localStorage.setItem('match_info', JSON.stringify(matchInfo)), [matchInfo]);
+  useEffect(() => localStorage.setItem('match_stats', JSON.stringify(stats)), [stats]);
+  useEffect(() => localStorage.setItem('match_pitch_stats', JSON.stringify(pitchStats)), [pitchStats]);
+  useEffect(() => localStorage.setItem('match_heatmap_events', JSON.stringify(heatMapEvents)), [heatMapEvents]);
+  useEffect(() => localStorage.setItem('match_player_pressure_stats', JSON.stringify(playerPressureStats)), [playerPressureStats]);
+  useEffect(() => localStorage.setItem('manual_stats', JSON.stringify(manualStats)), [manualStats]);
+  useEffect(() => localStorage.setItem('manual_pitch_events', JSON.stringify(manualPitchEvents)), [manualPitchEvents]);
+
+  // Load Saved Matches (Master DB Only)
+  const loadMatchList = async () => {
+    try {
+      const snapshot = await get(child(ref(db), 'matches'));
+      if (snapshot.exists()) {
+        const data = snapshot.val();
+        const list = Object.keys(data).map(key => ({
+          id: key,
+          ...data[key].matchInfo,
+          timestamp: data[key].timestamp
+        })).sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0)); // Sort Newest First
+        setMatchList(list);
+      } else {
+        setMatchList([]);
+      }
+    } catch (error) {
+      console.error("Error loading match list:", error);
+    }
+  };
+
+
+  // Live Sync Effect (Master DB)
   useEffect(() => {
     if (!matchId) return;
 
-    // Safety check: if db failed to initialize (e.g. missing config), don't crash the app
-    if (!db) {
-      console.error("Firebase Database not initialized");
-      return;
-    }
+    // Use onValue for Real-time updates from MASTER DB
+    const matchRef = ref(db, `matches/${matchId}`);
 
-    try {
-      const matchRef = ref(db, `matches/${matchId}`);
+    const unsubscribe = onValue(matchRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const data = snapshot.val();
 
-      if (isLive && isAdmin) {
-        // ADMIN MODE: Push changes to Firebase
+        // Incoming Sync: Always update local state to match DB
+        // (Unless we are Admin and actively writing? No, Firebase handles local echo well)
+        if (data.timer) setTimer(data.timer);
+        if (data.matchInfo) setMatchInfo(data.matchInfo); // Sync Match Info (Names, etc)
+        if (data.stats) setStats(data.stats);
+        if (data.pitchStats) setPitchStats(data.pitchStats);
+        if (data.heatMapEvents) {
+          setHeatMapEvents(data.heatMapEvents);
+          heatMapEventsRef.current = data.heatMapEvents; // Sync Ref
+        }
+        if (data.playerPressureStats) setPlayerPressureStats(data.playerPressureStats);
+
+        // Note: Manual Stats are LOCAL ONLY usually, but could be synced. 
+        // For now, leaving Manual Stats local to device unless specifically added to DB schema.
+      }
+    });
+
+    return () => unsubscribe();
+  }, [matchId]);
+
+  // Actions
+  const goLive = async (id, admin = false) => {
+    setMatchId(id);
+    setIsLive(true);
+    setIsAdmin(admin);
+
+    if (admin) {
+      // Create/Overwrite in MASTER
+      const matchRef = ref(db, `matches/${id}`);
+
+      // Check if exists to preserve data if reconnecting as Admin
+      const snapshot = await get(matchRef);
+      if (!snapshot.exists()) {
+        // Initialize New Match
         set(matchRef, {
           timer,
           matchInfo,
           stats,
           pitchStats,
-          manualStats,
-          manualPitchEvents,
-          lastUpdated: Date.now()
-        }).catch(err => console.error("Sync Error:", err));
-      }
-      else if (isLive && !isAdmin) {
-        // CLIENT MODE: Listen for changes from Firebase
-        const unsubscribe = onValue(matchRef, (snapshot) => {
-          const data = snapshot.val();
-          if (data) {
-            if (data.timer) setTimer(prev => ({ ...prev, ...data.timer, isRunning: data.timer.isRunning })); // Keep local running state logic? Actually for clients we usually just mirror
-            if (data.matchInfo) setMatchInfo(data.matchInfo);
-            if (data.stats) setStats(data.stats);
-            if (data.pitchStats) setPitchStats(data.pitchStats);
-            if (data.manualStats) setManualStats(data.manualStats);
-            if (data.manualPitchEvents) setManualPitchEvents(data.manualPitchEvents);
-          }
+          heatMapEvents,
+          playerPressureStats,
+          timestamp: Date.now()
         });
-        return () => unsubscribe();
+      } else {
+        // Reconnected: Use DB data? Or Local?
+        // Policy: If Admin reconnects, assume DB is truth to prevent overwrite?
+        // OR assume Local is truth (if connection dropped)?
+        // Let's assume Local State is FRESHER if we just clicked "Go Live", 
+        // BUT if we are joining an existing ID, maybe we want to load it first?
+        // For simplicity/safety: Just set the Ref listeners invoke above will sync us.
+        // We trigger an initial write ONLY if we have data?
       }
-    } catch (e) {
-      console.error("Error setting up Firebase sync:", e);
     }
-  }, [matchId, isLive, isAdmin, timer, matchInfo, stats, pitchStats, manualStats, manualPitchEvents]);
-
-  // Persist Live State
-  useEffect(() => {
-    localStorage.setItem('match_id', matchId);
-    localStorage.setItem('is_live', isLive);
-    localStorage.setItem('is_admin', isAdmin);
-  }, [matchId, isLive, isAdmin]);
-
-  const goLive = (newMatchId, admin = true) => {
-    setMatchId(newMatchId);
-    setIsAdmin(admin);
-    setIsLive(true);
   };
 
   const stopLive = () => {
+    setMatchId(null);
     setIsLive(false);
     setIsAdmin(false);
-    setMatchId('');
   };
 
-  // Persistence Effects
-  useEffect(() => {
-    localStorage.setItem('match_timer', JSON.stringify(timer));
-  }, [timer]);
+  // Generic Update Helper (Master Only)
+  const saveToDb = (path, value) => {
+    if (matchId && isAdmin) {
+      set(ref(db, `matches/${matchId}/${path}`), value)
+        .catch(e => console.error("Save Error:", e));
+    }
+  };
 
-  useEffect(() => {
-    localStorage.setItem('match_info', JSON.stringify(matchInfo));
-  }, [matchInfo]);
+  const startTimer = () => {
+    setTimer(prev => {
+      const newState = { ...prev, isRunning: true };
+      saveToDb('timer', newState);
+      return newState;
+    });
+  };
 
-  useEffect(() => {
-    localStorage.setItem('match_stats', JSON.stringify(stats));
-  }, [stats]);
+  const pauseTimer = () => {
+    setTimer(prev => {
+      const newState = { ...prev, isRunning: false };
+      saveToDb('timer', newState);
+      return newState;
+    });
+  };
 
+  // Interval for Timer
   useEffect(() => {
-    localStorage.setItem('match_pitch_stats', JSON.stringify(pitchStats));
-  }, [pitchStats]);
-
-  // Timer Logic
-  useEffect(() => {
+    let interval;
     if (timer.isRunning) {
-      timerIntervalRef.current = setInterval(() => {
+      interval = setInterval(() => {
         setTimer(prev => {
-          const newSeconds = prev.seconds + 1;
-          if (newSeconds === 60) {
-            return { ...prev, minutes: prev.minutes + 1, seconds: 0 };
+          // Logic to increment time
+          let { minutes, seconds } = prev;
+          seconds++;
+          if (seconds >= 60) {
+            minutes++;
+            seconds = 0;
           }
-          return { ...prev, seconds: newSeconds };
+          const next = { ...prev, minutes, seconds };
+          // Don't save every second to DB (too much), only on pause/event?
+          // OR standard app approach: save every 5-10s?
+          // For now: syncing every second is spammy. 
+          // Better: Save timer only on modify actions.
+          // *Ideally* only Admin updates DB.
+          return next;
         });
       }, 1000);
-    } else {
-      clearInterval(timerIntervalRef.current);
     }
-    return () => clearInterval(timerIntervalRef.current);
+    return () => clearInterval(interval);
   }, [timer.isRunning]);
 
-  // Actions
-  const startTimer = () => setTimer(prev => ({ ...prev, isRunning: true }));
-  const pauseTimer = () => setTimer(prev => ({ ...prev, isRunning: false }));
+  // Sync Timer periodically if Admin
+  useEffect(() => {
+    if (timer.isRunning && matchId && isAdmin) {
+      const tick = setInterval(() => {
+        saveToDb('timer', timer);
+      }, 5000);
+      return () => clearInterval(tick);
+    }
+  }, [timer, matchId, isAdmin]);
+
 
   const endQuarter = () => {
     setTimer(prev => {
-      let nextQuarter = prev.quarter;
-      let shouldResetTime = false;
-      let shouldKeepRunning = false;
+      let nextQ = 'FT';
+      if (prev.quarter === 'Q1') nextQ = 'Q2';
+      else if (prev.quarter === 'Q2') nextQ = 'Q3';
+      else if (prev.quarter === 'Q3') nextQ = 'Q4';
 
-      if (prev.quarter === 'Q1') {
-        nextQuarter = 'Q2';
-        shouldKeepRunning = true;
-      }
-      else if (prev.quarter === 'Q2') {
-        nextQuarter = 'Q3';
-        shouldResetTime = true;
-        shouldKeepRunning = false;
-      }
-      else if (prev.quarter === 'Q3') {
-        nextQuarter = 'Q4';
-        shouldKeepRunning = true;
-      }
-      else if (prev.quarter === 'Q4') {
-        nextQuarter = 'FT';
-        shouldKeepRunning = false;
-      }
-
-      return {
-        ...prev,
-        quarter: nextQuarter,
-        minutes: shouldResetTime ? 0 : prev.minutes,
-        seconds: shouldResetTime ? 0 : prev.seconds,
-        isRunning: shouldKeepRunning
-      };
+      const newState = { minutes: 0, seconds: 0, isRunning: false, quarter: nextQ };
+      saveToDb('timer', newState);
+      return newState;
     });
   };
 
-  const updateStat = (statId, delta) => {
-    if (timer.quarter === 'FT') return; // No updates after full time
-
-    setStats(prev => {
-      const currentQ = prev[timer.quarter.toLowerCase()] || {};
-      const currentVal = currentQ[statId] || 0;
-      const newVal = Math.max(0, currentVal + delta);
-
-      return {
-        ...prev,
-        [timer.quarter.toLowerCase()]: {
-          ...currentQ,
-          [statId]: newVal
-        }
-      };
+  const setQuarter = (quarter) => {
+    setTimer(prev => {
+      const newState = { ...prev, quarter };
+      saveToDb('timer', newState);
+      return newState;
     });
-  };
-
-  const addPitchEvent = (type, data) => {
-    setPitchStats(prev => ({
-      ...prev,
-      [type]: [...prev[type], { ...data, quarter: timer.quarter }]
-    }));
   };
 
   const updateMatchInfo = (field, value) => {
-    setMatchInfo(prev => ({ ...prev, [field]: value }));
+    setMatchInfo(prev => {
+      const next = { ...prev, [field]: value };
+      saveToDb('matchInfo', next);
+      return next;
+    });
+  };
+
+  const updateStat = (quarter, statType, team, delta) => {
+    setStats(prev => {
+      const qStats = prev[quarter] || {};
+      let currentVal = qStats[statType];
+
+      // Robust handling for legacy data (number instead of object)
+      if (typeof currentVal === 'number') {
+        currentVal = { home: currentVal, away: 0 };
+      } else if (!currentVal) {
+        currentVal = { home: 0, away: 0 };
+      }
+
+      // Now currentVal is guaranteed to be an object
+      const currentCount = currentVal[team] || 0;
+      const nextVal = { ...currentVal, [team]: Math.max(0, currentCount + delta) };
+
+      const nextState = {
+        ...prev,
+        [quarter]: { ...qStats, [statType]: nextVal }
+      };
+      saveToDb('stats', nextState);
+      return nextState;
+    });
+  };
+
+  // ... similar for other updates, simpler to just rely on local state update + sync
+
+  const addPitchEvent = (quarter, type, event) => { // type: scores, puckouts, frees
+    setPitchStats(prev => {
+      const qStats = prev[quarter] || { scores: [], puckouts: [], frees: [] };
+      const list = qStats[type] || [];
+      const nextList = [...list, event];
+      const nextQ = { ...qStats, [type]: nextList };
+      const nextState = { ...prev, [quarter]: nextQ };
+      saveToDb('pitchStats', nextState);
+      return nextState;
+    });
+  };
+
+  const undoPitchEvent = (quarter, type) => {
+    setPitchStats(prev => {
+      const qStats = prev[quarter];
+      if (!qStats || !qStats[type] || qStats[type].length === 0) return prev;
+
+      const nextList = [...qStats[type]];
+      nextList.pop(); // Remove last
+
+      const nextState = { ...prev, [quarter]: { ...qStats, [type]: nextList } };
+      saveToDb('pitchStats', nextState);
+      return nextState;
+    });
+  };
+
+  const removePitchEvent = (quarter, type, index) => {
+    setPitchStats(prev => {
+      const qStats = prev[quarter];
+      const list = qStats[type] || [];
+      const nextList = list.filter((_, i) => i !== index);
+
+      const nextState = { ...prev, [quarter]: { ...qStats, [type]: nextList } };
+      saveToDb('pitchStats', nextState);
+      return nextState;
+    });
+  };
+
+  // Heatmap
+  const addHeatMapEvent = (quarter, event) => {
+    setHeatMapEvents(prev => {
+      const list = prev[quarter] || [];
+      const nextList = [...list, event];
+      const nextState = { ...prev, [quarter]: nextList };
+
+      // AUTO-SAVE to DB
+      // NOTE: Previous logic had complex "save to historical if historicalID present".
+      // Now: ALWAYS save to Master DB if matchId present.
+      if (matchId) {
+        saveToDb('heatMapEvents', nextState);
+
+        // Also update Player Pressure Stats if derived?
+        // Not automatically here, updatePlayerPressureStats is separate call
+      }
+
+      return nextState;
+    });
+  };
+
+  const removeHeatMapEvent = (quarter, index) => {
+    setHeatMapEvents(prev => {
+      const list = prev[quarter] || [];
+      const nextList = list.filter((_, i) => i !== index);
+      const nextState = { ...prev, [quarter]: nextList };
+      saveToDb('heatMapEvents', nextState);
+      return nextState;
+    });
+  };
+
+  const undoHeatMapEvent = (quarter) => {
+    setHeatMapEvents(prev => {
+      const list = prev[quarter] || [];
+      if (list.length === 0) return prev;
+      const nextList = list.slice(0, -1);
+      const nextState = { ...prev, [quarter]: nextList };
+      saveToDb('heatMapEvents', nextState);
+      return nextState;
+    });
+  };
+
+  const updatePlayerPressureStats = (newStats) => { // Accepts full array or delta? Usually full list
+    setPlayerPressureStats(newStats);
+    saveToDb('playerPressureStats', newStats);
   };
 
 
-
-  // Persistence Effects for Manual Data
-  useEffect(() => {
-    localStorage.setItem('manual_stats', JSON.stringify(manualStats));
-  }, [manualStats]);
-
-  useEffect(() => {
-    localStorage.setItem('manual_pitch_events', JSON.stringify(manualPitchEvents));
-  }, [manualPitchEvents]);
-
-  // Manual Data Actions
-  const updateManualStat = (quarter, statId, value) => {
-    setManualStats(prev => ({
-      ...prev,
-      [quarter]: {
-        ...prev[quarter],
-        [statId]: parseInt(value) || 0
-      }
-    }));
+  // Manual
+  const updateManualStat = (quarter, playerIndex, stat, delta) => {
+    setManualStats(prev => {
+      const qStats = prev[quarter] || {};
+      const pStats = qStats[playerIndex] || {};
+      const nextVal = Math.max(0, (pStats[stat] || 0) + delta);
+      return { ...prev, [quarter]: { ...qStats, [playerIndex]: { ...pStats, [stat]: nextVal } } };
+    });
   };
 
   const addManualPitchEvent = (quarter, type, event) => {
-    setManualPitchEvents(prev => ({
-      ...prev,
-      [quarter]: {
-        ...prev[quarter],
-        [type]: [...prev[quarter][type], event]
-      }
-    }));
-  };
-
-  const undoPitchEvent = (type) => {
-    setPitchStats(prev => {
-      const currentLayer = prev[type] || [];
-      if (currentLayer.length === 0) return prev;
+    setManualPitchEvents(prev => {
+      const qStats = prev[quarter] || { scores: [], puckouts: [], frees: [] };
+      const list = qStats[type] || [];
       return {
-        ...prev,
-        [type]: currentLayer.slice(0, -1)
+        ...prev, [quarter]: { ...qStats, [type]: [...list, event] }
       };
     });
   };
 
   const undoManualPitchEvent = (quarter, type) => {
     setManualPitchEvents(prev => {
-      const currentQuarter = prev[quarter] || {};
-      const currentLayer = currentQuarter[type] || [];
-      if (currentLayer.length === 0) return prev;
+      const qStats = prev[quarter];
+      const list = qStats[type] || [];
+      if (list.length === 0) return prev;
       return {
-        ...prev,
-        [quarter]: {
-          ...currentQuarter,
-          [type]: currentLayer.slice(0, -1)
-        }
+        ...prev, [quarter]: { ...qStats, [type]: list.slice(0, -1) }
       };
     });
   };
 
+  // LOAD MATCH LOGIC (Unified)
+  const loadMatch = async (id) => {
+    try {
+      // Single Source: MASTER DB
+      const snapshot = await get(child(ref(db), `matches/${id}`));
+
+      if (snapshot.exists()) {
+        const data = snapshot.val();
+
+        setTimer(data.timer || { minutes: 0, seconds: 0, isRunning: false, quarter: 'Q1' });
+        setMatchInfo(data.matchInfo || INITIAL_MATCH_INFO);
+        setStats(data.stats || INITIAL_STATS);
+        setPitchStats(data.pitchStats || {
+          q1: { scores: [], puckouts: [], frees: [] },
+          q2: { scores: [], puckouts: [], frees: [] },
+          q3: { scores: [], puckouts: [], frees: [] },
+          q4: { scores: [], puckouts: [], frees: [] }
+        });
+        setHeatMapEvents(data.heatMapEvents || INITIAL_HEATMAP_EVENTS);
+        setPlayerPressureStats(data.playerPressureStats || INITIAL_PLAYER_PRESSURE_STATS);
+
+        // Set ID so we are "Live" with this match (Read/Write)
+        // IMPORTANT: "Load" usually implies "View/Edit". 
+        // Do we set isAdmin?
+        // Logic: If loading, let's treat as Local View unless "Go Live" is pressed?
+        // User said "Load" -> "Edit" -> "Save". 
+        // To support Save, we need `matchId` set.
+        setMatchId(id);
+        // Do NOT set isAdmin automatically? Or set it true to allow edits?
+        // The user specifically wants to "load and update". 
+        // Let's set isAdmin = true to enable `saveToDb` hooks.
+        // Wait, `goLive` does this.
+        // Let's repurpose this:
+        setIsAdmin(true);
+        setIsLive(false); // It's not a "Live Broadcast" maybe, but it is an active session
+
+        alert("Match loaded successfully from Master Database.");
+      } else {
+        alert("Match not found.");
+      }
+    } catch (error) {
+      console.error("Load Match Error:", error);
+      alert("Error loading match.");
+    }
+  };
+
   const resetMatch = () => {
-    if (window.confirm('Are you sure you want to reset the match? All data will be lost.')) {
-      setStats(INITIAL_STATS);
+    if (window.confirm("Reset all match data?")) {
       setTimer({ minutes: 0, seconds: 0, isRunning: false, quarter: 'Q1' });
-      setPitchStats({ scores: [], puckouts: [], frees: [] });
+      setStats(INITIAL_STATS);
+      setPitchStats({
+        q1: { scores: [], puckouts: [], frees: [] },
+        q2: { scores: [], puckouts: [], frees: [] },
+        q3: { scores: [], puckouts: [], frees: [] },
+        q4: { scores: [], puckouts: [], frees: [] }
+      });
+      setHeatMapEvents(INITIAL_HEATMAP_EVENTS);
+      setPlayerPressureStats(INITIAL_PLAYER_PRESSURE_STATS);
       setMatchInfo(INITIAL_MATCH_INFO);
 
       // Reset Manual Data too
@@ -313,9 +511,16 @@ export const MatchProvider = ({ children }) => {
       localStorage.removeItem('match_stats');
       localStorage.removeItem('match_timer');
       localStorage.removeItem('match_pitch_stats');
+      localStorage.removeItem('match_heatmap_events');
+      localStorage.removeItem('match_player_pressure_stats');
       localStorage.removeItem('match_info');
       localStorage.removeItem('manual_stats');
       localStorage.removeItem('manual_pitch_events');
+
+      // Clear Sync
+      setMatchId(null);
+      setIsAdmin(false);
+      setIsLive(false);
     }
   };
 
@@ -325,25 +530,36 @@ export const MatchProvider = ({ children }) => {
       matchInfo,
       stats,
       pitchStats,
+      heatMapEvents,
+      playerPressureStats,
       manualStats,
       manualPitchEvents,
       setMatchInfo,
       startTimer,
       pauseTimer,
       endQuarter,
+      setQuarter,
       updateStat,
       addPitchEvent,
       updateMatchInfo,
+      addHeatMapEvent,
+      removeHeatMapEvent,
+      undoHeatMapEvent,
+      updatePlayerPressureStats,
       resetMatch,
       updateManualStat,
       addManualPitchEvent,
       undoPitchEvent,
+      removePitchEvent,
       undoManualPitchEvent,
       goLive,
       stopLive,
       matchId,
       isLive,
-      isAdmin
+      isAdmin,
+      matchList,
+      loadMatchList, // Expose
+      loadMatch      // Expose
     }}>
       {children}
     </MatchContext.Provider>

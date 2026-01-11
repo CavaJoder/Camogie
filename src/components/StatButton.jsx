@@ -1,20 +1,23 @@
 import React from 'react';
 
-const StatButton = ({ label, count, color = '#bb86fc', onIncrement, onDecrement }) => {
+const StatButton = ({ label, count, color = '#bb86fc', onIncrement, onDecrement, disabled = false }) => {
     return (
         <div style={{
             display: 'flex',
             height: '60px',
-            backgroundColor: '#1e1e1e',
-            border: '1px solid #333',
+            backgroundColor: disabled ? '#121212' : '#1e1e1e', // Darker when disabled
+            border: disabled ? '1px solid #222' : '1px solid #333',
             borderRadius: '6px',
             overflow: 'hidden',
             userSelect: 'none',
-            touchAction: 'manipulation' // Improves touch response
+            touchAction: 'manipulation',
+            opacity: disabled ? 0.5 : 1, // Visual cue
+            cursor: disabled ? 'not-allowed' : 'default'
         }}>
             {/* Main Increment Area */}
             <button
-                onClick={onIncrement}
+                onClick={!disabled ? onIncrement : undefined}
+                disabled={disabled}
                 style={{
                     flex: '1',
                     display: 'flex',
@@ -25,15 +28,15 @@ const StatButton = ({ label, count, color = '#bb86fc', onIncrement, onDecrement 
                     background: 'transparent',
                     color: 'white',
                     textAlign: 'left',
-                    borderRight: '1px solid #333'
+                    borderRight: disabled ? '1px solid #222' : '1px solid #333',
+                    cursor: disabled ? 'not-allowed' : 'pointer'
                 }}
-                className="active:bg-gray-800" // Tailwind-like active state if configured, or use CSS
             >
-                <span style={{ fontSize: '0.9rem', marginBottom: '2px' }}>{label}</span>
+                <span style={{ fontSize: '0.9rem', marginBottom: '2px', color: disabled ? '#666' : '#fff' }}>{label}</span>
                 <span style={{
                     fontSize: '1.2rem',
                     fontWeight: 'bold',
-                    color: color
+                    color: disabled ? '#666' : color
                 }}>
                     {count}
                 </span>
@@ -43,16 +46,17 @@ const StatButton = ({ label, count, color = '#bb86fc', onIncrement, onDecrement 
             <button
                 onClick={(e) => {
                     e.stopPropagation();
-                    onDecrement();
+                    if (!disabled) onDecrement();
                 }}
+                disabled={disabled}
                 style={{
                     width: '40px',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    background: '#2d2d2d', // Slightly lighter for differentiation
-                    color: '#b0b0b0',
-                    cursor: 'pointer'
+                    background: disabled ? '#1a1a1a' : '#2d2d2d',
+                    color: disabled ? '#444' : '#b0b0b0',
+                    cursor: disabled ? 'not-allowed' : 'pointer'
                 }}
             >
                 <span style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>-</span>

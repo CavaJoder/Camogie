@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
 import { useMatch } from '../context/MatchContext';
 
-const PuckoutsView = () => {
+const PuckoutsView = ({ readOnly = false }) => {
     const { matchInfo, pitchStats, addPitchEvent, timer } = useMatch();
     const [selectedOutcome, setSelectedOutcome] = useState(null); // 'won' or 'lost'
     const [viewTeam, setViewTeam] = useState('home'); // Toggle between teams for viewing AND recording
 
     const handlePitchClick = (e) => {
+        if (readOnly) return;
+
         if (!selectedOutcome) {
             alert('Please select an outcome (Won or Lost) first');
             return;
@@ -22,13 +24,22 @@ const PuckoutsView = () => {
             y,
             outcome: selectedOutcome,
             team: viewTeam,
-            id: Date.now()
+            id: Date.now(),
+            quarter: timer.quarter
         };
 
-        addPitchEvent('puckouts', newPuckout);
+        addPitchEvent(timer.quarter.toLowerCase(), 'puckouts', newPuckout);
     };
 
-    const currentPuckouts = pitchStats.puckouts.filter(p => {
+    const allPuckouts = [
+        ...(pitchStats.q1?.puckouts || []),
+        ...(pitchStats.q2?.puckouts || []),
+        ...(pitchStats.q3?.puckouts || []),
+        ...(pitchStats.q4?.puckouts || []),
+        ...(pitchStats.ft?.puckouts || [])
+    ];
+
+    const currentPuckouts = allPuckouts.filter(p => {
         if (p.team !== viewTeam) return false;
 
         // Half Logic
@@ -45,7 +56,7 @@ const PuckoutsView = () => {
     });
 
     return (
-        <div style={{ padding: '20px', paddingBottom: '80px' }}>
+        <div style={{ padding: '20px', paddingBottom: '80px', pointerEvents: readOnly ? 'none' : 'auto', opacity: readOnly ? 0.7 : 1 }}>
             <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#fff', marginBottom: '20px' }}>Puckouts</h2>
 
             {/* Combined Outcome and Team Controls */}
@@ -142,7 +153,7 @@ const PuckoutsView = () => {
                         border: '2px solid #333',
                         borderRadius: '8px',
                         backgroundColor: '#1a4d1a',
-                        cursor: selectedOutcome ? 'crosshair' : 'not-allowed'
+                        cursor: readOnly ? 'not-allowed' : (selectedOutcome ? 'crosshair' : 'not-allowed')
                     }}
                 >
                     {/* Grass Stripes Pattern */}
@@ -272,10 +283,10 @@ const PuckoutsView = () => {
                 </p>
                 <div style={{ marginTop: '12px', display: 'flex', justifyContent: 'space-around', fontSize: '0.85rem' }}>
                     <span style={{ color: '#b0b0b0' }}>
-                        {matchInfo.homeTeam || 'Team A'}: <span style={{ color: '#4caf50' }}>{pitchStats.puckouts.filter(p => p.team === 'home' && p.outcome === 'won').length} won</span> / <span style={{ color: '#f44336' }}>{pitchStats.puckouts.filter(p => p.team === 'home' && p.outcome === 'lost').length} lost</span>
+                        {matchInfo.homeTeam || 'Team A'}: <span style={{ color: '#4caf50' }}>{allPuckouts.filter(p => p.team === 'home' && p.outcome === 'won').length} won</span> / <span style={{ color: '#f44336' }}>{allPuckouts.filter(p => p.team === 'home' && p.outcome === 'lost').length} lost</span>
                     </span>
                     <span style={{ color: '#b0b0b0' }}>
-                        {matchInfo.awayTeam || 'Team B'}: <span style={{ color: '#4caf50' }}>{pitchStats.puckouts.filter(p => p.team === 'away' && p.outcome === 'won').length} won</span> / <span style={{ color: '#f44336' }}>{pitchStats.puckouts.filter(p => p.team === 'away' && p.outcome === 'lost').length} lost</span>
+                        {matchInfo.awayTeam || 'Team B'}: <span style={{ color: '#4caf50' }}>{allPuckouts.filter(p => p.team === 'away' && p.outcome === 'won').length} won</span> / <span style={{ color: '#f44336' }}>{allPuckouts.filter(p => p.team === 'away' && p.outcome === 'lost').length} lost</span>
                     </span>
                 </div>
             </div>

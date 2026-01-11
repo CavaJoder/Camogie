@@ -42,11 +42,12 @@ export const SquadProvider = ({ children }) => {
     ];
 
     // Squad CRUD operations
-    const createSquad = (name, logo = null) => {
+    const createSquad = (name, logo = null, themeColor = '#bb86fc') => {
         const newSquad = {
             id: crypto.randomUUID(),
             name,
             logo,
+            themeColor,
             createdAt: Date.now(),
             players: []
         };
@@ -77,6 +78,7 @@ export const SquadProvider = ({ children }) => {
             id: crypto.randomUUID(),
             name: playerData.name,
             number: playerData.number,
+            club: playerData.club || '',
             positions: playerData.positions || []
         };
 

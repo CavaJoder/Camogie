@@ -64,7 +64,15 @@ const Header = () => {
                         {matchInfo.homeTeam || 'HOME'} <span style={{ color: '#4caf50', margin: '0 8px' }}>
                             {/* Home Score Calc */}
                             {(() => {
-                                const homeScores = pitchStats.scores.filter(s => s.team === 'home');
+                                const allScores = [
+                                    ...(pitchStats.q1?.scores || []),
+                                    ...(pitchStats.q2?.scores || []),
+                                    ...(pitchStats.q3?.scores || []),
+                                    ...(pitchStats.q4?.scores || []),
+                                    ...(pitchStats.ft?.scores || []),
+                                    ...(Array.isArray(pitchStats.scores) ? pitchStats.scores : []) // Legacy Support
+                                ];
+                                const homeScores = allScores.filter(s => s.team === 'home');
                                 const goals = homeScores.filter(s => s.type === 'goal' || s.type === 'penalty').length;
                                 const points = homeScores.filter(s => s.type === 'point' || s.type === 'free' || s.type === '45').length;
                                 const total = (goals * 3) + points;
@@ -75,7 +83,15 @@ const Header = () => {
                         <span style={{ color: '#4caf50', margin: '0 8px' }}>
                             {/* Away Score Calc */}
                             {(() => {
-                                const awayScores = pitchStats.scores.filter(s => s.team === 'away');
+                                const allScores = [
+                                    ...(pitchStats.q1?.scores || []),
+                                    ...(pitchStats.q2?.scores || []),
+                                    ...(pitchStats.q3?.scores || []),
+                                    ...(pitchStats.q4?.scores || []),
+                                    ...(pitchStats.ft?.scores || []),
+                                    ...(Array.isArray(pitchStats.scores) ? pitchStats.scores : []) // Legacy Support
+                                ];
+                                const awayScores = allScores.filter(s => s.team === 'away');
                                 const goals = awayScores.filter(s => s.type === 'goal' || s.type === 'penalty').length;
                                 const points = awayScores.filter(s => s.type === 'point' || s.type === 'free' || s.type === '45').length;
                                 const total = (goals * 3) + points;

@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { useMatch } from '../context/MatchContext';
 
-const ScoresView = () => {
-    const { matchInfo, pitchStats, addPitchEvent, undoPitchEvent, timer } = useMatch();
+const ScoresView = ({ readOnly = false }) => {
+    const { matchInfo, pitchStats, addPitchEvent, undoPitchEvent, removePitchEvent, timer } = useMatch();
     const [selectedType, setSelectedType] = useState(null);
     const [selectedTeam, setSelectedTeam] = useState('home');
 
@@ -16,28 +16,54 @@ const ScoresView = () => {
     ];
 
     const handlePitchClick = (e) => {
-        if (!selectedType) {
-            alert('Please select a score type first');
-            return;
-        }
+        if (readOnly) return;
 
         const svg = e.currentTarget;
         const rect = svg.getBoundingClientRect();
         const x = ((e.clientX - rect.left) / rect.width) * 400;
         const y = ((e.clientY - rect.top) / rect.height) * 250;
 
+        // Check for collision with existing scores (Remove Logic)
+        const threshold = 15; // Hitbox size
+        const clickedScore = currentScores.find(s => {
+            const dx = s.x - x;
+            const dy = s.y - y;
+            return (dx * dx + dy * dy) < (threshold * threshold);
+        });
+
+        if (clickedScore) {
+            if (window.confirm('Remove this event?')) {
+                removePitchEvent('scores', clickedScore.id);
+            }
+            return;
+        }
+
+        if (!selectedType) {
+            alert('Please select a score type first');
+            return;
+        }
+
         const newScore = {
             id: Date.now(),
             x,
             y,
             type: selectedType,
-            team: selectedTeam
+            team: selectedTeam,
+            quarter: timer.quarter
         };
 
-        addPitchEvent('scores', newScore);
+        addPitchEvent(timer.quarter.toLowerCase(), 'scores', newScore);
     };
 
-    const currentScores = pitchStats.scores.filter(s => {
+    const allScores = [
+        ...(pitchStats.q1?.scores || []),
+        ...(pitchStats.q2?.scores || []),
+        ...(pitchStats.q3?.scores || []),
+        ...(pitchStats.q4?.scores || []),
+        ...(pitchStats.ft?.scores || [])
+    ];
+
+    const currentScores = allScores.filter(s => {
         if (s.team !== selectedTeam) return false;
 
         // Half Logic
@@ -55,20 +81,21 @@ const ScoresView = () => {
     });
 
     return (
-        <div style={{ padding: '20px', paddingBottom: '80px' }}>
+        <div style={{ padding: '20px', paddingBottom: '80px', pointerEvents: readOnly ? 'none' : 'auto', opacity: readOnly ? 0.7 : 1 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
                 <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#fff' }}>Scores</h2>
                 <button
                     onClick={() => undoPitchEvent('scores')}
+                    disabled={readOnly}
                     style={{
                         padding: '8px 16px',
-                        backgroundColor: '#cf6679',
+                        backgroundColor: readOnly ? '#555' : '#cf6679',
                         color: '#fff',
                         border: 'none',
                         borderRadius: '6px',
                         fontSize: '0.8rem',
                         fontWeight: 'bold',
-                        cursor: 'pointer'
+                        cursor: readOnly ? 'not-allowed' : 'pointer'
                     }}
                 >
                     Undo Last
@@ -172,7 +199,7 @@ const ScoresView = () => {
                         border: '2px solid #333',
                         borderRadius: '8px',
                         backgroundColor: '#1a4d1a',
-                        cursor: selectedType ? 'crosshair' : 'not-allowed'
+                        cursor: readOnly ? 'not-allowed' : (selectedType ? 'crosshair' : 'not-allowed')
                     }}
                 >
                     {/* Grass Stripes Pattern */}
@@ -314,10 +341,10 @@ const ScoresView = () => {
                 </p>
                 <div style={{ marginTop: '12px', display: 'flex', justifyContent: 'space-around', fontSize: '0.85rem' }}>
                     <span style={{ color: '#b0b0b0' }}>
-                        {matchInfo.homeTeam || 'Team A'}: <span style={{ color: '#4caf50' }}>{pitchStats.scores.filter(s => s.team === 'home').length} events</span>
+                        {matchInfo.homeTeam || 'Team A'}: <span style={{ color: '#4caf50' }}>{allScores.filter(s => s.team === 'home').length} events</span>
                     </span>
                     <span style={{ color: '#b0b0b0' }}>
-                        {matchInfo.awayTeam || 'Team B'}: <span style={{ color: '#4caf50' }}>{pitchStats.scores.filter(s => s.team === 'away').length} events</span>
+                        {matchInfo.awayTeam || 'Team B'}: <span style={{ color: '#4caf50' }}>{allScores.filter(s => s.team === 'away').length} events</span>
                     </span>
                 </div>
             </div>
