@@ -9,14 +9,14 @@ import { getDatabase } from "firebase/database";
 // Initialize Firebase (MASTER DATABASE - Formerly Historical/Archive)
 // The "Archive" database is now the Single Source of Truth.
 const firebaseConfig = {
-    apiKey: "AIzaSyBxKAM1tboySNqKnJ79RMU8DyXj_t4mjjE",
-    authDomain: "limerickcamogieplayerstats.firebaseapp.com",
-    databaseURL: "https://limerickcamogieplayerstats-default-rtdb.europe-west1.firebasedatabase.app",
-    projectId: "limerickcamogieplayerstats",
-    storageBucket: "limerickcamogieplayerstats.firebasestorage.app",
-    messagingSenderId: "753951107266",
-    appId: "1:753951107266:web:6b319b5035d4a41d5e735b",
-    measurementId: "G-6CFNYG9WH1"
+    apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+    authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+    databaseURL: import.meta.env.VITE_FIREBASE_DATABASE_URL,
+    projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+    storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+    messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+    appId: import.meta.env.VITE_FIREBASE_APP_ID,
+    measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID
 };
 
 // Initialize Firebase
