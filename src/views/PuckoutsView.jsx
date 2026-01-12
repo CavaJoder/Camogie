@@ -31,7 +31,9 @@ const PuckoutsView = ({ readOnly = false }) => {
         addPitchEvent(timer.quarter.toLowerCase(), 'puckouts', newPuckout);
     };
 
-    const allPuckouts = [
+
+    // Combine all quarters
+    const rawPuckouts = [
         ...(pitchStats.q1?.puckouts || []),
         ...(pitchStats.q2?.puckouts || []),
         ...(pitchStats.q3?.puckouts || []),
@@ -39,7 +41,15 @@ const PuckoutsView = ({ readOnly = false }) => {
         ...(pitchStats.ft?.puckouts || [])
     ];
 
+    // Deduplicate by ID to prevent "Non-unique key" React crash
+    const allPuckoutsMap = new Map();
+    rawPuckouts.forEach(p => {
+        if (p && p.id) allPuckoutsMap.set(p.id, p);
+    });
+    const allPuckouts = Array.from(allPuckoutsMap.values());
+
     const currentPuckouts = allPuckouts.filter(p => {
+        if (!p) return false;
         if (p.team !== viewTeam) return false;
 
         // Half Logic
@@ -47,16 +57,20 @@ const PuckoutsView = ({ readOnly = false }) => {
         const puckoutQuarter = p.quarter || 'Q1';
         const isPuckoutFirstHalf = puckoutQuarter === 'Q1' || puckoutQuarter === 'Q2';
 
+        if (timer.quarter === 'FT') {
+            return true; // Show ALL puckouts in Full Time
+        }
+
         if (isFirstHalf) {
             return isPuckoutFirstHalf;
         } else {
-            // In 2nd half (Q3, Q4, FT), show only 2nd half puckouts
+            // In 2nd half (Q3, Q4), show only 2nd half puckouts
             return !isPuckoutFirstHalf;
         }
     });
 
     return (
-        <div style={{ padding: '20px', paddingBottom: '80px', pointerEvents: readOnly ? 'none' : 'auto', opacity: readOnly ? 0.7 : 1 }}>
+        <div style={{ padding: '20px', paddingBottom: '80px', opacity: readOnly ? 0.9 : 1 }}>
             <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#fff', marginBottom: '20px' }}>Puckouts</h2>
 
             {/* Combined Outcome and Team Controls */}
@@ -283,10 +297,10 @@ const PuckoutsView = ({ readOnly = false }) => {
                 </p>
                 <div style={{ marginTop: '12px', display: 'flex', justifyContent: 'space-around', fontSize: '0.85rem' }}>
                     <span style={{ color: '#b0b0b0' }}>
-                        {matchInfo.homeTeam || 'Team A'}: <span style={{ color: '#4caf50' }}>{allPuckouts.filter(p => p.team === 'home' && p.outcome === 'won').length} won</span> / <span style={{ color: '#f44336' }}>{allPuckouts.filter(p => p.team === 'home' && p.outcome === 'lost').length} lost</span>
+                        {matchInfo.homeTeam || 'Team A'}: <span style={{ color: '#4caf50' }}>{allPuckouts.filter(p => p && p.team === 'home' && p.outcome === 'won').length} won</span> / <span style={{ color: '#f44336' }}>{allPuckouts.filter(p => p && p.team === 'home' && p.outcome === 'lost').length} lost</span>
                     </span>
                     <span style={{ color: '#b0b0b0' }}>
-                        {matchInfo.awayTeam || 'Team B'}: <span style={{ color: '#4caf50' }}>{allPuckouts.filter(p => p.team === 'away' && p.outcome === 'won').length} won</span> / <span style={{ color: '#f44336' }}>{allPuckouts.filter(p => p.team === 'away' && p.outcome === 'lost').length} lost</span>
+                        {matchInfo.awayTeam || 'Team B'}: <span style={{ color: '#4caf50' }}>{allPuckouts.filter(p => p && p.team === 'away' && p.outcome === 'won').length} won</span> / <span style={{ color: '#f44336' }}>{allPuckouts.filter(p => p && p.team === 'away' && p.outcome === 'lost').length} lost</span>
                     </span>
                 </div>
             </div>

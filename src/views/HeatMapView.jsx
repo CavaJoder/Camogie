@@ -98,10 +98,10 @@ const HeatMapPitch = ({
     const displayZones = viewMode === 'standard' ? standardZones : (viewMode === 'lines' ? lineZones : sectorZones);
 
     const getZoneCounts = (subZoneIds) => {
-        const zoneEvents = events.filter(e => subZoneIds.includes(e.zoneId));
+        const zoneEvents = events.filter(e => e && subZoneIds.includes(e.zoneId));
         return {
-            oppPossession: zoneEvents.filter(e => e.type === 'oppPossession').length,
-            teamPressure: zoneEvents.filter(e => e.type === 'teamPressure').length
+            oppPossession: zoneEvents.filter(e => e && e.type === 'oppPossession').length,
+            teamPressure: zoneEvents.filter(e => e && e.type === 'teamPressure').length
         };
     };
 
@@ -693,10 +693,10 @@ const HeatMapView = () => {
         // MUST use getEventsForQuarter to handle virtual tabs (firstHalf, secondHalf, summary)
         const events = getEventsForQuarter(targetQ);
 
-        const zoneEvents = events.filter(e => subZoneIds.includes(e.zoneId));
+        const zoneEvents = events.filter(e => e && subZoneIds.includes(e.zoneId));
         return {
-            oppPossession: zoneEvents.filter(e => e.type === 'oppPossession').length,
-            teamPressure: zoneEvents.filter(e => e.type === 'teamPressure').length
+            oppPossession: zoneEvents.filter(e => e && e.type === 'oppPossession').length,
+            teamPressure: zoneEvents.filter(e => e && e.type === 'teamPressure').length
         };
     };
     const handleZoneClick = (e, zone) => {
@@ -876,8 +876,8 @@ const HeatMapView = () => {
     };
 
 
-    const totalOppPossession = getEventsForQuarter('summary').filter(e => e.type === 'oppPossession').length;
-    const totalTeamPressure = getEventsForQuarter('summary').filter(e => e.type === 'teamPressure').length;
+    const totalOppPossession = getEventsForQuarter('summary').filter(e => e && e.type === 'oppPossession').length;
+    const totalTeamPressure = getEventsForQuarter('summary').filter(e => e && e.type === 'teamPressure').length;
 
     const getDisplayZones = (modeOverride) => {
         const mode = modeOverride || viewMode;
@@ -938,10 +938,10 @@ const HeatMapView = () => {
 
                                 const bucketCounts = (qData, targetZones) => {
                                     const evs = qData || [];
-                                    const relevant = evs.filter(e => targetZones.includes(e.zoneId));
+                                    const relevant = evs.filter(e => e && targetZones.includes(e.zoneId));
                                     return {
-                                        opp: relevant.filter(e => e.type === 'oppPossession').length,
-                                        press: relevant.filter(e => e.type === 'teamPressure').length
+                                        opp: relevant.filter(e => e && e.type === 'oppPossession').length,
+                                        press: relevant.filter(e => e && e.type === 'teamPressure').length
                                     };
                                 };
 
@@ -1550,10 +1550,10 @@ const HeatMapView = () => {
 
                                 const bucketCounts = (qData, targetZones) => {
                                     const evs = qData || [];
-                                    const relevant = evs.filter(e => targetZones.includes(e.zoneId));
+                                    const relevant = evs.filter(e => e && targetZones.includes(e.zoneId));
                                     return {
-                                        opp: relevant.filter(e => e.type === 'oppPossession').length,
-                                        press: relevant.filter(e => e.type === 'teamPressure').length
+                                        opp: relevant.filter(e => e && e.type === 'oppPossession').length,
+                                        press: relevant.filter(e => e && e.type === 'teamPressure').length
                                     };
                                 };
 
@@ -1611,8 +1611,8 @@ const HeatMapView = () => {
                         })}
                         {(() => {
                             // Calculate Totals dynamically based on selected tabs
-                            const currentOpp = currentEvents.filter(e => e.type === 'oppPossession').length;
-                            const currentPress = currentEvents.filter(e => e.type === 'teamPressure').length;
+                            const currentOpp = currentEvents.filter(e => e && e.type === 'oppPossession').length;
+                            const currentPress = currentEvents.filter(e => e && e.type === 'teamPressure').length;
                             return (
                                 <tr style={{ backgroundColor: '#2d2d2d', fontWeight: 'bold' }}>
                                     <td style={{ padding: '8px', color: '#fff' }}>TOTAL</td>

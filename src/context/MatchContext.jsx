@@ -50,18 +50,45 @@ export const MatchProvider = ({ children }) => {
   // Pitch Stats State (Scores, Puckouts, Frees)
   const [pitchStats, setPitchStats] = useState(() => {
     const saved = localStorage.getItem('match_pitch_stats');
-    return saved ? JSON.parse(saved) : {
-      q1: { scores: [], puckouts: [], frees: [] },
-      q2: { scores: [], puckouts: [], frees: [] },
-      q3: { scores: [], puckouts: [], frees: [] },
-      q4: { scores: [], puckouts: [], frees: [] }
+    let parsed = saved ? JSON.parse(saved) : null;
+    if (!parsed) {
+      return {
+        q1: { scores: [], puckouts: [], frees: [] },
+        q2: { scores: [], puckouts: [], frees: [] },
+        q3: { scores: [], puckouts: [], frees: [] },
+        q4: { scores: [], puckouts: [], frees: [] }
+      };
+    }
+
+    // Immediate Sanitization of LocalStorage Data
+    const cleanQuarter = (q) => ({
+      scores: (q?.scores || []).filter(s => s !== null && s !== undefined),
+      puckouts: (q?.puckouts || []).filter(p => p !== null && p !== undefined),
+      frees: (q?.frees || []).filter(f => f !== null && f !== undefined)
+    });
+
+    return {
+      q1: cleanQuarter(parsed.q1),
+      q2: cleanQuarter(parsed.q2),
+      q3: cleanQuarter(parsed.q3),
+      q4: cleanQuarter(parsed.q4),
     };
   });
 
   // Heat Map Events State (New)
   const [heatMapEvents, setHeatMapEvents] = useState(() => {
     const saved = localStorage.getItem('match_heatmap_events');
-    return saved ? JSON.parse(saved) : INITIAL_HEATMAP_EVENTS;
+    const parsed = saved ? JSON.parse(saved) : null;
+    if (!parsed) return INITIAL_HEATMAP_EVENTS;
+
+    // Sanitize
+    const cleanList = (list) => (list || []).filter(e => e !== null && e !== undefined);
+    return {
+      q1: cleanList(parsed.q1),
+      q2: cleanList(parsed.q2),
+      q3: cleanList(parsed.q3),
+      q4: cleanList(parsed.q4),
+    };
   });
 
   // Use a Ref to hold the latest heatMapEvents for the listener to write back atomically if needed
@@ -85,11 +112,27 @@ export const MatchProvider = ({ children }) => {
 
   const [manualPitchEvents, setManualPitchEvents] = useState(() => {
     const saved = localStorage.getItem('manual_pitch_events');
-    return saved ? JSON.parse(saved) : {
-      q1: { scores: [], puckouts: [], frees: [] },
-      q2: { scores: [], puckouts: [], frees: [] },
-      q3: { scores: [], puckouts: [], frees: [] },
-      q4: { scores: [], puckouts: [], frees: [] }
+    const parsed = saved ? JSON.parse(saved) : null;
+    if (!parsed) {
+      return {
+        q1: { scores: [], puckouts: [], frees: [] },
+        q2: { scores: [], puckouts: [], frees: [] },
+        q3: { scores: [], puckouts: [], frees: [] },
+        q4: { scores: [], puckouts: [], frees: [] }
+      };
+    }
+
+    const cleanQuarter = (q) => ({
+      scores: (q?.scores || []).filter(s => s !== null && s !== undefined),
+      puckouts: (q?.puckouts || []).filter(p => p !== null && p !== undefined),
+      frees: (q?.frees || []).filter(f => f !== null && f !== undefined)
+    });
+
+    return {
+      q1: cleanQuarter(parsed.q1),
+      q2: cleanQuarter(parsed.q2),
+      q3: cleanQuarter(parsed.q3),
+      q4: cleanQuarter(parsed.q4),
     };
   });
 
@@ -101,6 +144,7 @@ export const MatchProvider = ({ children }) => {
 
   // Saved Match List
   const [matchList, setMatchList] = useState([]);
+  const [debugKeys, setDebugKeys] = useState([]); // Debugging: Raw keys from DB
 
   // Effects for LocalStorage
   useEffect(() => localStorage.setItem('match_timer', JSON.stringify(timer)), [timer]);
@@ -149,7 +193,20 @@ export const MatchProvider = ({ children }) => {
         if (data.timer) setTimer(data.timer);
         if (data.matchInfo) setMatchInfo(data.matchInfo); // Sync Match Info (Names, etc)
         if (data.stats) setStats(data.stats);
-        if (data.pitchStats) setPitchStats(data.pitchStats);
+        if (data.pitchStats) {
+          const cleanQuarter = (q) => ({
+            scores: (q?.scores || []).filter(s => s !== null && s !== undefined),
+            puckouts: (q?.puckouts || []).filter(p => p !== null && p !== undefined),
+            frees: (q?.frees || []).filter(f => f !== null && f !== undefined)
+          });
+          const cleanStats = {
+            q1: cleanQuarter(data.pitchStats.q1),
+            q2: cleanQuarter(data.pitchStats.q2),
+            q3: cleanQuarter(data.pitchStats.q3),
+            q4: cleanQuarter(data.pitchStats.q4),
+          };
+          setPitchStats(cleanStats);
+        }
         if (data.heatMapEvents) {
           setHeatMapEvents(data.heatMapEvents);
           heatMapEventsRef.current = data.heatMapEvents; // Sync Ref
@@ -348,11 +405,16 @@ export const MatchProvider = ({ children }) => {
     });
   };
 
-  const removePitchEvent = (quarter, type, index) => {
+  const removePitchEvent = (quarter, type, id) => {
     setPitchStats(prev => {
       const qStats = prev[quarter];
+      if (!qStats) {
+        console.warn(`removePitchEvent: Invalid quarter '${quarter}'`);
+        return prev;
+      }
       const list = qStats[type] || [];
-      const nextList = list.filter((_, i) => i !== index);
+      // Filter by ID (assuming id is passed, not index)
+      const nextList = list.filter(item => item && item.id !== id);
 
       const nextState = { ...prev, [quarter]: { ...qStats, [type]: nextList } };
       saveToDb('pitchStats', nextState);
@@ -447,16 +509,30 @@ export const MatchProvider = ({ children }) => {
 
       if (snapshot.exists()) {
         const data = snapshot.val();
+        setDebugKeys(Object.keys(data)); // Capture all keys for debugging
+
+
+        // SANITIZATION: Clean pitchStats to remove nulls immediately on load
+        const cleanPitchStats = (rawStats) => {
+          if (!rawStats) return { q1: { scores: [], puckouts: [], frees: [] }, q2: { scores: [], puckouts: [], frees: [] }, q3: { scores: [], puckouts: [], frees: [] }, q4: { scores: [], puckouts: [], frees: [] } };
+          const cleanQuarter = (q) => ({
+            scores: (q?.scores || []).filter(s => s !== null && s !== undefined),
+            puckouts: (q?.puckouts || []).filter(p => p !== null && p !== undefined),
+            frees: (q?.frees || []).filter(f => f !== null && f !== undefined)
+          });
+          return {
+            q1: cleanQuarter(rawStats.q1),
+            q2: cleanQuarter(rawStats.q2),
+            q3: cleanQuarter(rawStats.q3),
+            q4: cleanQuarter(rawStats.q4),
+          };
+        };
+        setPitchStats(cleanPitchStats(data.pitchStats));
 
         setTimer(data.timer || { minutes: 0, seconds: 0, isRunning: false, quarter: 'Q1' });
         setMatchInfo(data.matchInfo || INITIAL_MATCH_INFO);
         setStats(data.stats || INITIAL_STATS);
-        setPitchStats(data.pitchStats || {
-          q1: { scores: [], puckouts: [], frees: [] },
-          q2: { scores: [], puckouts: [], frees: [] },
-          q3: { scores: [], puckouts: [], frees: [] },
-          q4: { scores: [], puckouts: [], frees: [] }
-        });
+        // Note: pitchStats already set via cleanPitchStats above
         setHeatMapEvents(data.heatMapEvents || INITIAL_HEATMAP_EVENTS);
         setPlayerPressureStats(data.playerPressureStats || INITIAL_PLAYER_PRESSURE_STATS);
 
@@ -555,11 +631,11 @@ export const MatchProvider = ({ children }) => {
       goLive,
       stopLive,
       matchId,
-      isLive,
       isAdmin,
       matchList,
       loadMatchList, // Expose
-      loadMatch      // Expose
+      loadMatch,      // Expose
+      debugKeys
     }}>
       {children}
     </MatchContext.Provider>

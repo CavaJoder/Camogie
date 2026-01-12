@@ -11,10 +11,10 @@ const DashboardView = () => {
     const [showFreesInPdf, setShowFreesInPdf] = useState(false);
 
     // Filter Pitch Stats by Half
-    const firstHalfScores = (pitchStats?.scores || []).filter(s => ['Q1', 'Q2'].includes(s.quarter));
-    const secondHalfScores = (pitchStats?.scores || []).filter(s => ['Q3', 'Q4', 'FT'].includes(s.quarter));
-    const firstHalfPuckouts = (pitchStats?.puckouts || []).filter(p => ['Q1', 'Q2'].includes(p.quarter));
-    const secondHalfPuckouts = (pitchStats?.puckouts || []).filter(p => ['Q3', 'Q4', 'FT'].includes(p.quarter));
+    const firstHalfScores = (pitchStats?.scores || []).filter(s => s && ['Q1', 'Q2'].includes(s.quarter));
+    const secondHalfScores = (pitchStats?.scores || []).filter(s => s && ['Q3', 'Q4', 'FT'].includes(s.quarter));
+    const firstHalfPuckouts = (pitchStats?.puckouts || []).filter(p => p && ['Q1', 'Q2'].includes(p.quarter));
+    const secondHalfPuckouts = (pitchStats?.puckouts || []).filter(p => p && ['Q3', 'Q4', 'FT'].includes(p.quarter));
 
     // Helper to safely get stat value (number or object.home)
     const getStatValue = (q, statId) => {
@@ -29,8 +29,62 @@ const DashboardView = () => {
         }, 0);
     };
 
+    // INTEGRATION: Calculate totals from Pitch Events
+    const getPitchTotal = (category) => {
+        const allScores = [
+            ...(pitchStats?.q1?.scores || []),
+            ...(pitchStats?.q2?.scores || []),
+            ...(pitchStats?.q3?.scores || []),
+            ...(pitchStats?.q4?.scores || []),
+            ...(pitchStats?.ft?.scores || [])
+        ];
+
+        switch (category) {
+            case 'scores':
+                // Sum of all successful scores from pitch
+                return allScores.filter(s => s && ['point', 'goal', 'free', '45', 'penalty'].includes(s.type)).length;
+            case 'wides':
+                return allScores.filter(s => s && s.type === 'wide').length;
+            default:
+                return 0;
+        }
+    };
+
+    const getPuckoutTotal = (type, outcome) => {
+        // type: 'own' or 'opp'. 'own' = matchInfo.homeTeam usually?
+        // Wait, Dashboard logic for 'ownPuckout' usually implies user's team.
+        // In this app context, 'Home' is usually the user's team or the primary tracking target.
+        // Pitch Events have explicit 'team' property ('home' or 'away').
+
+        // Let's assume 'own' = 'home' and 'opp' = 'away' for the default dashboard view.
+        // If the user is tracking 'Away', this might be inverted, but standard usage is Home = Us.
+
+        const targetTeam = type === 'own' ? 'home' : 'away'; // Simplified assumption
+
+        const allPuckouts = [
+            ...(pitchStats?.q1?.puckouts || []),
+            ...(pitchStats?.q2?.puckouts || []),
+            ...(pitchStats?.q3?.puckouts || []),
+            ...(pitchStats?.q4?.puckouts || []),
+            ...(pitchStats?.ft?.puckouts || [])
+        ];
+
+        const teamPuckouts = allPuckouts.filter(p => p && p.team === targetTeam);
+
+        if (outcome === 'won') return teamPuckouts.filter(p => p.outcome === 'won').length;
+        if (outcome === 'total') return teamPuckouts.length;
+        return 0;
+    };
+
     const getTeamScore = (team) => {
-        const scores = (pitchStats?.scores || []).filter(s => s.team === team);
+        const allScores = [
+            ...(pitchStats?.q1?.scores || []),
+            ...(pitchStats?.q2?.scores || []),
+            ...(pitchStats?.q3?.scores || []),
+            ...(pitchStats?.q4?.scores || []),
+            ...(pitchStats?.ft?.scores || [])
+        ];
+        const scores = allScores.filter(s => s && s.team === team);
         const goals = scores.filter(s => s.type === 'goal' || s.type === 'penalty').length;
         const points = scores.filter(s => s.type === 'point' || s.type === 'free' || s.type === '45').length;
         const total = (goals * 3) + points;
@@ -63,10 +117,22 @@ const DashboardView = () => {
 
     // --- Chart Data Preparation ---
 
-    // Shot Analysis Data
+    // Shot Analysis Data (Integrated)
+    // We sum Manual Stats AND Pitch Stats to capture all input methods.
+    // Note: If user double-enters, it double-counts. Valid constraint.
     const shotData = [
-        { name: 'Scores', value: sumStats('score'), color: '#4caf50' },
-        { name: 'Wides', value: sumStats('wide'), color: '#cf6679' },
+        {
+            name: 'Scores',
+            // Manual: score + scoreFree + score45 + penalty + point65 + (goals? if any manual button exists)
+            // Pitch: getPitchTotal('scores')
+            value: sumStats('score') + sumStats('scoreFree') + sumStats('score45') + sumStats('penalty') + sumStats('point65') + getPitchTotal('scores'),
+            color: '#4caf50'
+        },
+        {
+            name: 'Wides',
+            value: sumStats('wide') + sumStats('wide65') + getPitchTotal('wides'),
+            color: '#cf6679'
+        },
         { name: 'Short', value: sumStats('short'), color: '#ff9800' },
         { name: 'Saved', value: sumStats('saved'), color: '#ff9800' },
     ].filter(d => d.value > 0);
@@ -100,10 +166,19 @@ const DashboardView = () => {
         offLost: getStatValue(q, 'offRuck') - getStatValue(q, 'offRuckWon'),
     }));
 
-    // Puckout Data
+    // Puckout Data (Integrated)
     const ownPuckoutData = [
-        { name: 'Won', value: sumStats('ownPuckoutWon'), color: '#4caf50' },
-        { name: 'Lost', value: Math.max(0, sumStats('ownPuckout') - sumStats('ownPuckoutWon')), color: '#cf6679' },
+        {
+            name: 'Won',
+            value: sumStats('ownPuckoutWon') + getPuckoutTotal('own', 'won'),
+            color: '#4caf50'
+        },
+        {
+            name: 'Lost',
+            // Total - Won
+            value: Math.max(0, (sumStats('ownPuckout') + getPuckoutTotal('own', 'total')) - (sumStats('ownPuckoutWon') + getPuckoutTotal('own', 'won'))),
+            color: '#cf6679'
+        },
     ].filter(d => d.value > 0);
 
     // Free Type Breakdown
@@ -121,8 +196,16 @@ const DashboardView = () => {
     })).sort((a, b) => b.value - a.value);
 
     const oppPuckoutData = [
-        { name: 'Won', value: sumStats('oppPuckoutWon'), color: '#03dac6' },
-        { name: 'Lost', value: Math.max(0, sumStats('oppPuckout') - sumStats('oppPuckoutWon')), color: '#bb86fc' },
+        {
+            name: 'Won',
+            value: sumStats('oppPuckoutWon') + getPuckoutTotal('opp', 'won'),
+            color: '#03dac6'
+        },
+        {
+            name: 'Lost',
+            value: Math.max(0, (sumStats('oppPuckout') + getPuckoutTotal('opp', 'total')) - (sumStats('oppPuckoutWon') + getPuckoutTotal('opp', 'won'))),
+            color: '#bb86fc'
+        },
     ].filter(d => d.value > 0);
 
     const renderCustomLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent, index, name, value }) => {
@@ -166,11 +249,33 @@ const DashboardView = () => {
         }, 500);
     };
 
+    // Helper to get stats for a specific quarter from Pitch Events
+    const getPitchQuarterStats = (q) => {
+        const events = pitchStats?.[q] || {};
+        const scores = events.scores || [];
+        const puckouts = events.puckouts || [];
+
+        // Scores
+        const successfulScores = scores.filter(s => s && ['point', 'goal', 'free', '45', 'penalty'].includes(s.type)).length;
+        const wides = scores.filter(s => s && s.type === 'wide').length;
+        const totalShots = successfulScores + wides; // Pitch shots = scores + wides
+
+        // Puckouts
+        const ownPuckouts = puckouts.filter(p => p && p.team === 'home'); // Assuming home = own
+        const ownWon = ownPuckouts.filter(p => p.outcome === 'won').length;
+        const oppPuckouts = puckouts.filter(p => p && p.team === 'away');
+        const oppWon = oppPuckouts.filter(p => p.outcome === 'won').length;
+
+        return { successfulScores, totalShots, ownPuckouts: ownPuckouts.length, ownWon, oppPuckouts: oppPuckouts.length, oppWon };
+    };
+
     const getStats = (quarters, type) => {
         let value = 0;
         let total = 0;
 
         quarters.forEach(q => {
+            const pitch = getPitchQuarterStats(q);
+
             if (type === 'rucks') {
                 const rucks = getStatValue(q, 'defRuck') + getStatValue(q, 'midRuck') + getStatValue(q, 'offRuck');
                 const won = getStatValue(q, 'defRuckWon') + getStatValue(q, 'midRuckWon') + getStatValue(q, 'offRuckWon');
@@ -182,28 +287,37 @@ const DashboardView = () => {
                 value += pressures;
                 total += oppPoss;
             } else if (type === 'attack') {
-                const shots = getStatValue(q, 'shotTaken');
-                const score = getStatValue(q, 'score');
+                // Attack Efficiency: Scores vs Attempts
+                const shots = getStatValue(q, 'shotTaken') + pitch.totalShots;
+                const score = getStatValue(q, 'score') + pitch.successfulScores;
                 value += score;
                 total += shots;
             } else if (type === 'puckouts') {
-                const tot = getStatValue(q, 'oppPuckout') + getStatValue(q, 'ownPuckout');
-                const won = getStatValue(q, 'oppPuckoutWon') + getStatValue(q, 'ownPuckoutWon');
+                // Puckouts Won vs Total (Own + Opp combined? Dashboard says 'Puckouts' title, usually implies Own)
+                // Actually the Puckout card usually splits Own/Opp, but 'puckouts' type here sums raw numbers?
+                // Let's look at SummaryCard usage. It's used for "Puckouts Won".
+                // If it's overall puckouts, we sum both?
+                // Wait, default dashboard usually has specific sections.
+                // Let's assume Own Puckouts validation for now or Total Puckout dominance.
+                const tot = getStatValue(q, 'oppPuckout') + getStatValue(q, 'ownPuckout') + pitch.ownPuckouts + pitch.oppPuckouts;
+                const won = getStatValue(q, 'oppPuckoutWon') + getStatValue(q, 'ownPuckoutWon') + pitch.ownWon + pitch.oppWon;
                 value += won;
                 total += tot;
             } else if (type === 'conversion') {
                 const entries = getStatValue(q, 'ballInside65');
-                const shots = getStatValue(q, 'shotTaken');
+                const shots = getStatValue(q, 'shotTaken') + pitch.totalShots;
                 value += shots;
                 total += entries;
             } else if (type === 'efficiency') {
-                const shots = getStatValue(q, 'shotTaken');
-                const score = getStatValue(q, 'score');
+                // Scoring Efficiency
+                const shots = getStatValue(q, 'shotTaken') + pitch.totalShots;
+                const score = getStatValue(q, 'score') + pitch.successfulScores;
                 value += score;
                 total += shots;
             } else if (type === 'scoring') {
-                const shots = getStatValue(q, 'shotTaken');
-                const scores = getStatValue(q, 'score');
+                // Same as efficiency? Dashboard usage might differ.
+                const shots = getStatValue(q, 'shotTaken') + pitch.totalShots;
+                const scores = getStatValue(q, 'score') + pitch.successfulScores;
                 value += scores;
                 total += shots;
             } else if (type === 'freeRate') {
@@ -415,9 +529,63 @@ const DashboardView = () => {
     const oppPuckoutWonPct = oppPuckoutTotal > 0 ? Math.round((oppPuckoutWon / oppPuckoutTotal) * 100) : 0;
 
     return (
-        <div style={{ padding: '20px', paddingBottom: '80px' }}>
-            <div id="printableStats" className={isPdfMode ? 'pdf-mode' : ''}>
+        <div id="printableStats" className={isPdfMode ? 'pdf-mode' : ''} style={{
+            position: 'relative',
+            width: '100%',
+            overflowX: 'hidden',
+            backgroundColor: isPdfMode ? 'white' : '#121212',
+            minHeight: '100vh',
+            paddingBottom: '80px'
+        }}>
+            <style>{`
+                        .summary-cards-container {
+                            display: grid;
+                            grid-template-columns: 1fr;
+                            gap: 20px;
+                            margin-bottom: 30px;
+                        }
+                        @media (min-width: 768px) {
+                            .summary-cards-container {
+                                grid-template-columns: 1fr 1fr;
+                            }
+                        }
 
+                        .half-row { color: #90caf9 !important; }
+
+                        .pdf-mode .half-row { color: #000000 !important; }
+                        .pdf-mode {
+                            background-color: white !important;
+                            color: black !important;
+                        }
+                        .pdf-mode .summary-card {
+                            background-color: #f5f5f5 !important;
+                            color: black !important;
+                            border: 1px solid #ccc;
+                            padding: 8px !important;
+                        }
+                        .pdf-mode .stat-row {
+                            padding: 4px 0 !important;
+                            font-size: 0.8rem !important;
+                        }
+                        .pdf-mode h2, .pdf-mode h3, .pdf-mode h4 {
+                            color: black !important;
+                        }
+                    `}</style>
+
+            <button onClick={generatePDF} style={{
+                width: '100%',
+                backgroundColor: '#bb86fc',
+                color: 'black',
+                padding: '16px',
+                borderRadius: '8px',
+                fontWeight: 'bold',
+                fontSize: '1rem',
+                marginTop: '20px'
+            }}>
+                Generate PDF Report
+            </button>
+
+            <div style={{ padding: '20px', paddingBottom: '80px' }}>
                 {/* PDF Header - Only visible in PDF Mode */}
                 {isPdfMode && (
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '2px solid #333', paddingBottom: '20px', marginBottom: '20px' }}>
@@ -597,7 +765,7 @@ const DashboardView = () => {
                             <div style={{ backgroundColor: isPdfMode ? '#fff' : '#252525', padding: '15px', borderRadius: '8px', border: isPdfMode ? '1px solid #eee' : '1px solid #333' }}>
                                 <h4 style={{ color: matchInfo.homeTeamColor || '#bb86fc', fontSize: '0.8rem', marginBottom: '10px', textTransform: 'uppercase' }}>{matchInfo.homeTeam || 'Home'} Fouls by Zone</h4>
                                 {['Defence', 'Middle', 'Offence'].map(loc => {
-                                    const count = (pitchStats?.frees || []).filter(f => f.team === 'home' && f.location === loc).length;
+                                    const count = (pitchStats?.frees || []).filter(f => f && f.team === 'home' && f.location === loc).length;
                                     return (
                                         <div key={loc} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', color: isPdfMode ? '#333' : '#b0b0b0', marginBottom: '4px' }}>
                                             <span>{loc}:</span>
@@ -609,7 +777,7 @@ const DashboardView = () => {
                             <div style={{ backgroundColor: isPdfMode ? '#fff' : '#252525', padding: '15px', borderRadius: '8px', border: isPdfMode ? '1px solid #eee' : '1px solid #333' }}>
                                 <h4 style={{ color: matchInfo.awayTeamColor || '#03dac6', fontSize: '0.8rem', marginBottom: '10px', textTransform: 'uppercase' }}>{matchInfo.awayTeam || 'Away'} Fouls by Zone</h4>
                                 {['Defence', 'Middle', 'Offence'].map(loc => {
-                                    const count = (pitchStats?.frees || []).filter(f => f.team === 'away' && f.location === loc).length;
+                                    const count = (pitchStats?.frees || []).filter(f => f && f.team === 'away' && f.location === loc).length;
                                     return (
                                         <div key={loc} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', color: isPdfMode ? '#333' : '#b0b0b0', marginBottom: '4px' }}>
                                             <span>{loc}:</span>
@@ -1253,6 +1421,17 @@ const DashboardView = () => {
                             color: black !important;
                         }
                     `}</style>
+
+                {/* DEBUG PROBE START */}
+                <div style={{ padding: '10px', backgroundColor: '#000', color: '#ff00ff', margin: '20px 0', border: '2px solid #ff00ff', fontSize: '1rem', textAlign: 'center' }}>
+                    <strong>DEBUG PROBE v2.7.11</strong><br />
+                    <strong>Total Pitch Scores:</strong> {
+                        [...(pitchStats?.q1?.scores || []), ...(pitchStats?.q2?.scores || []), ...(pitchStats?.q3?.scores || []), ...(pitchStats?.q4?.scores || []), ...(pitchStats?.ft?.scores || [])].length
+                    }<br />
+                    <strong>Header Goals:</strong> {homeScore.goals}-{awayScore.goals}<br />
+                    <strong>Manual Scores:</strong> {sumStats('score')}
+                </div>
+                {/* DEBUG PROBE END */}
 
                 <button onClick={generatePDF} style={{
                     width: '100%',

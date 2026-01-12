@@ -33,7 +33,9 @@ const ScoresView = ({ readOnly = false }) => {
 
         if (clickedScore) {
             if (window.confirm('Remove this event?')) {
-                removePitchEvent('scores', clickedScore.id);
+                // Ensure quarter is correct (use score's quarter or current, lowercase)
+                const q = (clickedScore.quarter || timer.quarter).toLowerCase();
+                removePitchEvent(q, 'scores', clickedScore.id);
             }
             return;
         }
@@ -55,7 +57,9 @@ const ScoresView = ({ readOnly = false }) => {
         addPitchEvent(timer.quarter.toLowerCase(), 'scores', newScore);
     };
 
-    const allScores = [
+
+    // Combine all quarters
+    const rawScores = [
         ...(pitchStats.q1?.scores || []),
         ...(pitchStats.q2?.scores || []),
         ...(pitchStats.q3?.scores || []),
@@ -63,7 +67,15 @@ const ScoresView = ({ readOnly = false }) => {
         ...(pitchStats.ft?.scores || [])
     ];
 
+    // Deduplicate by ID to prevent "Non-unique key" React crash
+    const allScoresMap = new Map();
+    rawScores.forEach(s => {
+        if (s && s.id) allScoresMap.set(s.id, s);
+    });
+    const allScores = Array.from(allScoresMap.values());
+
     const currentScores = allScores.filter(s => {
+        if (!s) return false;
         if (s.team !== selectedTeam) return false;
 
         // Half Logic
@@ -71,17 +83,20 @@ const ScoresView = ({ readOnly = false }) => {
         const scoreQuarter = s.quarter || 'Q1'; // Default to Q1 if missing
         const isScoreFirstHalf = scoreQuarter === 'Q1' || scoreQuarter === 'Q2';
 
+        if (timer.quarter === 'FT') {
+            return true; // Show ALL scores in Full Time
+        }
+
         if (isFirstHalf) {
             return isScoreFirstHalf;
         } else {
-            // In 2nd half (Q3, Q4, FT), show only 2nd half scores
-            // Logic: "hide the first half scores"
+            // In 2nd half (Q3, Q4), show only 2nd half scores
             return !isScoreFirstHalf;
         }
     });
 
     return (
-        <div style={{ padding: '20px', paddingBottom: '80px', pointerEvents: readOnly ? 'none' : 'auto', opacity: readOnly ? 0.7 : 1 }}>
+        <div style={{ padding: '20px', paddingBottom: '80px', opacity: readOnly ? 0.9 : 1 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
                 <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#fff' }}>Scores</h2>
                 <button
@@ -318,35 +333,6 @@ const ScoresView = ({ readOnly = false }) => {
                         );
                     })}
                 </svg>
-            </div>
-
-            <div style={{
-                marginTop: '20px',
-                padding: '16px',
-                backgroundColor: '#1e1e1e',
-                borderRadius: '8px',
-                border: '1px solid #333'
-            }}>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '15px', justifyContent: 'center', marginBottom: '15px', borderBottom: '1px solid #333', paddingBottom: '15px' }}>
-                    {scoreTypes.map(type => (
-                        <div key={type.id} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            <div style={{ width: '12px', height: '12px', borderRadius: '50%', backgroundColor: type.color }}></div>
-                            <span style={{ color: '#b0b0b0', fontSize: '0.8rem' }}>{type.label}</span>
-                        </div>
-                    ))}
-                </div>
-
-                <p style={{ color: '#b0b0b0', fontSize: '0.9rem', textAlign: 'center' }}>
-                    Select a score type and team, then click on the pitch to record
-                </p>
-                <div style={{ marginTop: '12px', display: 'flex', justifyContent: 'space-around', fontSize: '0.85rem' }}>
-                    <span style={{ color: '#b0b0b0' }}>
-                        {matchInfo.homeTeam || 'Team A'}: <span style={{ color: '#4caf50' }}>{allScores.filter(s => s.team === 'home').length} events</span>
-                    </span>
-                    <span style={{ color: '#b0b0b0' }}>
-                        {matchInfo.awayTeam || 'Team B'}: <span style={{ color: '#4caf50' }}>{allScores.filter(s => s.team === 'away').length} events</span>
-                    </span>
-                </div>
             </div>
         </div>
     );

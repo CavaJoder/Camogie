@@ -21,10 +21,10 @@ const PlayerStatsView = () => {
     };
 
     // Filter Pitch Stats by Half
-    const firstHalfScores = (pitchStats?.scores || []).filter(s => ['Q1', 'Q2'].includes(s.quarter));
-    const secondHalfScores = (pitchStats?.scores || []).filter(s => ['Q3', 'Q4', 'FT'].includes(s.quarter));
-    const firstHalfPuckouts = (pitchStats?.puckouts || []).filter(p => ['Q1', 'Q2'].includes(p.quarter));
-    const secondHalfPuckouts = (pitchStats?.puckouts || []).filter(p => ['Q3', 'Q4', 'FT'].includes(p.quarter));
+    const firstHalfScores = (pitchStats?.scores || []).filter(s => s && ['Q1', 'Q2'].includes(s.quarter));
+    const secondHalfScores = (pitchStats?.scores || []).filter(s => s && ['Q3', 'Q4', 'FT'].includes(s.quarter));
+    const firstHalfPuckouts = (pitchStats?.puckouts || []).filter(p => p && ['Q1', 'Q2'].includes(p.quarter));
+    const secondHalfPuckouts = (pitchStats?.puckouts || []).filter(p => p && ['Q3', 'Q4', 'FT'].includes(p.quarter));
 
     // Data for Charts
     const shotData = [

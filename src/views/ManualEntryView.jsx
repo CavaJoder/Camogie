@@ -358,7 +358,7 @@ const ManualEntryView = () => {
                     <div style={{ display: entryMode === 'quarters' ? 'block' : 'grid', gridTemplateColumns: entryMode === 'quarters' ? '1fr' : '1fr 1fr', gap: '20px' }}>
                         {entryMode === 'quarters' ? (
                             <PitchMap type="scores" quarterId={selectedQuarter} onClick={handleScoreClick}>
-                                {manualPitchEvents[selectedQuarter].scores.filter(s => s.team === selectedScoreTeam).map(score => {
+                                {manualPitchEvents[selectedQuarter].scores.filter(s => s && s.team === selectedScoreTeam).map(score => {
                                     const typeConfig = scoreTypes.find(t => t.id === score.type);
                                     return <circle key={score.id} cx={score.x} cy={score.y} r="3" fill={typeConfig ? typeConfig.color : '#fff'} stroke="black" strokeWidth="0.5" />;
                                 })}
@@ -368,7 +368,7 @@ const ManualEntryView = () => {
                                 <div>
                                     <h4 style={{ textAlign: 'center', marginBottom: '10px', color: '#b0b0b0' }}>1st Half</h4>
                                     <PitchMap type="scores" quarterId="q1" onClick={handleScoreClick}>
-                                        {manualPitchEvents.q1.scores.filter(s => s.team === selectedScoreTeam).map(score => {
+                                        {manualPitchEvents.q1.scores.filter(s => s && s.team === selectedScoreTeam).map(score => {
                                             const typeConfig = scoreTypes.find(t => t.id === score.type);
                                             return <circle key={score.id} cx={score.x} cy={score.y} r="3" fill={typeConfig ? typeConfig.color : '#fff'} stroke="black" strokeWidth="0.5" />;
                                         })}
@@ -377,7 +377,7 @@ const ManualEntryView = () => {
                                 <div>
                                     <h4 style={{ textAlign: 'center', marginBottom: '10px', color: '#b0b0b0' }}>2nd Half</h4>
                                     <PitchMap type="scores" quarterId="q3" onClick={handleScoreClick}>
-                                        {manualPitchEvents.q3.scores.filter(s => s.team === selectedScoreTeam).map(score => {
+                                        {manualPitchEvents.q3.scores.filter(s => s && s.team === selectedScoreTeam).map(score => {
                                             const typeConfig = scoreTypes.find(t => t.id === score.type);
                                             return <circle key={score.id} cx={score.x} cy={score.y} r="3" fill={typeConfig ? typeConfig.color : '#fff'} stroke="black" strokeWidth="0.5" />;
                                         })}
@@ -411,7 +411,7 @@ const ManualEntryView = () => {
                     <div style={{ display: entryMode === 'quarters' ? 'block' : 'grid', gridTemplateColumns: entryMode === 'quarters' ? '1fr' : '1fr 1fr', gap: '20px' }}>
                         {entryMode === 'quarters' ? (
                             <PitchMap type="puckouts" quarterId={selectedQuarter} onClick={handlePuckoutClick}>
-                                {manualPitchEvents[selectedQuarter].puckouts.filter(p => p.team === selectedPuckoutTeam).map(puckout => (
+                                {manualPitchEvents[selectedQuarter].puckouts.filter(p => p && p.team === selectedPuckoutTeam).map(puckout => (
                                     <circle key={puckout.id} cx={puckout.x} cy={puckout.y} r="3" fill={puckout.outcome === 'won' ? '#4caf50' : '#f44336'} stroke="black" strokeWidth="0.5" />
                                 ))}
                             </PitchMap>
@@ -420,7 +420,7 @@ const ManualEntryView = () => {
                                 <div>
                                     <h4 style={{ textAlign: 'center', marginBottom: '10px', color: '#b0b0b0' }}>1st Half</h4>
                                     <PitchMap type="puckouts" quarterId="q1" onClick={handlePuckoutClick}>
-                                        {manualPitchEvents.q1.puckouts.filter(p => p.team === selectedPuckoutTeam).map(puckout => (
+                                        {manualPitchEvents.q1.puckouts.filter(p => p && p.team === selectedPuckoutTeam).map(puckout => (
                                             <circle key={puckout.id} cx={puckout.x} cy={puckout.y} r="3" fill={puckout.outcome === 'won' ? '#4caf50' : '#f44336'} stroke="black" strokeWidth="0.5" />
                                         ))}
                                     </PitchMap>
@@ -428,7 +428,7 @@ const ManualEntryView = () => {
                                 <div>
                                     <h4 style={{ textAlign: 'center', marginBottom: '10px', color: '#b0b0b0' }}>2nd Half</h4>
                                     <PitchMap type="puckouts" quarterId="q3" onClick={handlePuckoutClick}>
-                                        {manualPitchEvents.q3.puckouts.filter(p => p.team === selectedPuckoutTeam).map(puckout => (
+                                        {manualPitchEvents.q3.puckouts.filter(p => p && p.team === selectedPuckoutTeam).map(puckout => (
                                             <circle key={puckout.id} cx={puckout.x} cy={puckout.y} r="3" fill={puckout.outcome === 'won' ? '#4caf50' : '#f44336'} stroke="black" strokeWidth="0.5" />
                                         ))}
                                     </PitchMap>

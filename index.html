@@ -1,25 +1,35 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/png" href="/icons/icon-192x192.png" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    
-    <!-- PWA Meta Tags -->
-    <meta name="theme-color" content="#bb86fc" />
-    <meta name="description" content="Track and analyze match performance statistics" />
-    <link rel="manifest" href="/manifest.json" />
-    
-    <!-- iOS Meta Tags -->
-    <meta name="mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <meta name="apple-mobile-web-app-title" content="Perf Tracker" />
-    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
-    
-    <title>Performance Analysis Tracker</title>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
-  </body>
+
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/png" href="./icons/icon-192x192.png" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#bb86fc" />
+  <meta name="description" content="Track and analyze match performance statistics" />
+
+  <title>Performance Analysis Tracker</title>
+</head>
+
+<body>
+  <!-- SW KILLER: Aggressively remove any service workers to fix cache issues -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then(function (registrations) {
+        for (let registration of registrations) {
+          registration.unregister().then(() => console.log('SW Kill: Success'));
+        }
+      });
+      // Also clear caches
+      if ('caches' in window) {
+        caches.keys().then(function (names) {
+          for (let name of names) caches.delete(name);
+        });
+      }
+    }
+  </script>
+  <div id="root"></div>
+  <script type="module" src="/src/main.jsx"></script>
+</body>
+
 </html>
