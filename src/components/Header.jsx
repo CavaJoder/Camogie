@@ -116,7 +116,7 @@ const Header = () => {
                 fontWeight: '800',
                 letterSpacing: '-0.5px'
             }}>
-                Perf Tracker <span style={{ fontSize: '0.8rem', color: '#4caf50', fontWeight: 'bold' }}>v2.7.12 (FULL SYNC)</span>
+                Perf Tracker <span style={{ fontSize: '0.8rem', color: '#4caf50', fontWeight: 'bold' }}>v2.7.14 (VISUAL FIX)</span>
             </h1>
             {/* Timer Display */}
             <div style={{

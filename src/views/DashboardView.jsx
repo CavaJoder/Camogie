@@ -11,10 +11,19 @@ const DashboardView = () => {
     const [showFreesInPdf, setShowFreesInPdf] = useState(false);
 
     // Filter Pitch Stats by Half
-    const firstHalfScores = (pitchStats?.scores || []).filter(s => s && ['Q1', 'Q2'].includes(s.quarter));
-    const secondHalfScores = (pitchStats?.scores || []).filter(s => s && ['Q3', 'Q4', 'FT'].includes(s.quarter));
-    const firstHalfPuckouts = (pitchStats?.puckouts || []).filter(p => p && ['Q1', 'Q2'].includes(p.quarter));
-    const secondHalfPuckouts = (pitchStats?.puckouts || []).filter(p => p && ['Q3', 'Q4', 'FT'].includes(p.quarter));
+    // INTEGRATION FIX: Flatten Pitch Stats for Visual Maps
+    // pitchStats is partitioned by quarter (q1, q2...) so we must aggregate them first.
+    const allPitchScores = [
+        ...(pitchStats?.q1?.scores || []),
+        ...(pitchStats?.q2?.scores || []),
+        ...(pitchStats?.q3?.scores || []),
+        ...(pitchStats?.q4?.scores || []),
+        ...(pitchStats?.ft?.scores || [])
+    ];
+
+    // Filter by Half (Case Insensitive)
+    const firstHalfScores = allPitchScores.filter(s => s && ['q1', 'q2'].includes(s.quarter?.toLowerCase()));
+    const secondHalfScores = allPitchScores.filter(s => s && ['q3', 'q4', 'ft'].includes(s.quarter?.toLowerCase()));
 
     // Helper to safely get stat value (number or object.home)
     const getStatValue = (q, statId) => {
@@ -1422,16 +1431,7 @@ const DashboardView = () => {
                         }
                     `}</style>
 
-                {/* DEBUG PROBE START */}
-                <div style={{ padding: '10px', backgroundColor: '#000', color: '#ff00ff', margin: '20px 0', border: '2px solid #ff00ff', fontSize: '1rem', textAlign: 'center' }}>
-                    <strong>DEBUG PROBE v2.7.11</strong><br />
-                    <strong>Total Pitch Scores:</strong> {
-                        [...(pitchStats?.q1?.scores || []), ...(pitchStats?.q2?.scores || []), ...(pitchStats?.q3?.scores || []), ...(pitchStats?.q4?.scores || []), ...(pitchStats?.ft?.scores || [])].length
-                    }<br />
-                    <strong>Header Goals:</strong> {homeScore.goals}-{awayScore.goals}<br />
-                    <strong>Manual Scores:</strong> {sumStats('score')}
-                </div>
-                {/* DEBUG PROBE END */}
+
 
                 <button onClick={generatePDF} style={{
                     width: '100%',
