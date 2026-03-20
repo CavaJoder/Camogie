@@ -24,7 +24,7 @@ const ScoresView = ({ readOnly = false }) => {
         const y = ((e.clientY - rect.top) / rect.height) * 250;
 
         // Check for collision with existing scores (Remove Logic)
-        const threshold = 15; // Hitbox size
+        const threshold = 6; // Hitbox size
         const clickedScore = currentScores.find(s => {
             const dx = s.x - x;
             const dy = s.y - y;
@@ -74,9 +74,13 @@ const ScoresView = ({ readOnly = false }) => {
     });
     const allScores = Array.from(allScoresMap.values());
 
+    const [showAllScores, setShowAllScores] = useState(readOnly);
+
     const currentScores = allScores.filter(s => {
         if (!s) return false;
         if (s.team !== selectedTeam) return false;
+
+        if (showAllScores) return true; // Show all regardless of half
 
         // Half Logic
         const isFirstHalf = timer.quarter === 'Q1' || timer.quarter === 'Q2';
@@ -118,6 +122,18 @@ const ScoresView = ({ readOnly = false }) => {
             </div>
 
             {/* Combined Score and Team Controls */}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '10px' }}>
+                <label style={{ color: '#fff', fontSize: '0.9rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <input
+                        type="checkbox"
+                        checked={showAllScores}
+                        onChange={(e) => setShowAllScores(e.target.checked)}
+                        style={{ transform: 'scale(1.2)' }}
+                    />
+                    Show All Scores (Ignore Quarters)
+                </label>
+            </div>
+
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px', marginBottom: '20px' }}>
                 {/* Row 1: Team 1, Point, Goal, Wide */}
                 <button

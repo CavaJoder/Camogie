@@ -28,85 +28,6 @@ const PlayerAnalysisView = () => {
     const { matchList, loadMatchList, loadMatch, matchId, isAdmin, matchSource } = useMatch();
     const [isSyncing, setIsSyncing] = useState(false);
 
-    // Sync Logic: Robust Path Finder
-    useEffect(() => {
-        if (!matchId) {
-            setPlayerStats({});
-            setSelectedPlayers([]);
-            setIdMapping({});
-            return;
-        }
-
-        // Reset state on match change to prevent stale data from previous match
-        setSelectedPlayers([]);
-        setIdMapping({});
-
-        const targetDb = db;
-        let unsubscribe = () => { };
-
-        const findAndListen = async () => {
-            // 1. Try Legacy Path 'playAnalysis'
-            const legacyRef = ref(targetDb, `matches/${matchId}/playAnalysis`);
-
-            try {
-                const legacySnap = await get(legacyRef);
-                if (legacySnap.exists()) {
-                    console.log("DEBUG: Found data at playAnalysis");
-                    unsubscribe = onValue(legacyRef, (snapshot) => {
-                        if (snapshot.exists()) {
-                            const data = snapshot.val();
-                            const actualStats = data.playerStats || data;
-                            setPlayerStats(actualStats);
-                        }
-                    });
-                    return;
-                }
-
-                // 2. Try New Path 'playerAnalysis'
-                const newRef = ref(targetDb, `matches/${matchId}/playerAnalysis`);
-                const newSnap = await get(newRef);
-
-                if (newSnap.exists()) {
-                    console.log("DEBUG: Found data at playerAnalysis");
-                    unsubscribe = onValue(newRef, (snapshot) => {
-                        if (snapshot.exists()) {
-                            const data = snapshot.val();
-                            const actualStats = data.playerStats || data;
-                            setPlayerStats(actualStats);
-                        }
-                    });
-                    return;
-                }
-            } catch (e) {
-                console.error("Error finding analysis path:", e);
-            }
-
-            // 3. Fallback: Data Missing
-            console.log("DEBUG: No Analysis Data found at either key.");
-            setPlayerStats({});
-        };
-
-        findAndListen();
-
-        return () => {
-            if (unsubscribe) unsubscribe();
-        };
-    }, [matchId, matchSource, setPlayerStats]);
-
-    // Write Logic
-    useEffect(() => {
-        if (!matchId || !isSyncing) return;
-
-        const targetDb = db;
-
-        // Use 'playerAnalysis' as primary path
-        const path = `matches/${matchId}/playerAnalysis`;
-
-        const syncRef = ref(targetDb, path);
-        set(syncRef, playerStats)
-            .catch(err => console.error("Sync error", err));
-    }, [playerStats, matchId, isSyncing, isAdmin]);
-
     useEffect(() => {
         loadMatchList();
     }, []);
@@ -206,6 +127,14 @@ const PlayerAnalysisView = () => {
             const stats = playerStats[dataId] || {};
             const row = { Name: p.name };
             metrics.forEach(m => row[m.label] = stats[m.id] || 0);
+
+            // Add Derived Stats to CSV
+            const attempts = (stats.shotTaken || 0) + (stats.freeWon || 0) + (stats['45Won'] || 0) + (stats.shot65 || 0);
+            const scores = (stats.score || 0) + (stats.scoreFree || 0) + (stats.score45 || 0) + (stats.point65 || 0);
+            row['Total Scoring Attempts'] = attempts;
+            row['Total Scores'] = scores;
+            row['Scoring Efficiency %'] = attempts > 0 ? Math.round((scores / attempts) * 100) : 0;
+
             return row;
         });
 
@@ -397,6 +326,42 @@ const PlayerAnalysisView = () => {
                     val.style.fontWeight = 'bold';
                     val.style.fontSize = '12px';
                     val.style.color = '#000';
+
+                    box.appendChild(label);
+                    box.appendChild(val);
+                    statsGrid.appendChild(box);
+                });
+
+                // Add Derived metrics to PDF
+                const attempts = (stats.shotTaken || 0) + (stats.freeWon || 0);
+                const scores = (stats.scoreFromPlay || 0) + (stats.scoreFromFree || 0);
+                const efficiency = attempts > 0 ? Math.round((scores / attempts) * 100) : 0;
+
+                const derived = [
+                    { label: 'Scoring Attempts', val: attempts },
+                    { label: 'Total Scores', val: scores },
+                    { label: 'Scoring Eff %', val: efficiency + '%' }
+                ];
+
+                derived.forEach(d => {
+                    const box = document.createElement('div');
+                    box.style.border = '1px solid #e0f2f1';
+                    box.style.backgroundColor = '#f1f8e9';
+                    box.style.padding = '5px';
+                    box.style.textAlign = 'center';
+                    box.style.width = '22%';
+                    box.style.boxSizing = 'border-box';
+
+                    const label = document.createElement('div');
+                    label.textContent = d.label;
+                    label.style.fontSize = '9px';
+                    label.style.color = '#2e7d32';
+
+                    const val = document.createElement('div');
+                    val.textContent = d.val;
+                    val.style.fontWeight = 'bold';
+                    val.style.fontSize = '12px';
+                    val.style.color = '#1b5e20';
 
                     box.appendChild(label);
                     box.appendChild(val);
@@ -962,6 +927,58 @@ const PlayerAnalysisView = () => {
                                                             <Minus size={16} />
                                                         </button>
                                                     </div>
+                                                </td>
+                                            );
+                                        })}
+                                    </tr>
+                                ))}
+
+                                {/* Derived Metrics Rows */}
+                                {[
+                                    { id: 'totalAttempts', label: 'Scoring Attempts', calc: (s) => (s.shotTaken || 0) + (s.freeWon || 0) + (s['45Won'] || 0) + (s.shot65 || 0) },
+                                    { id: 'totalScores', label: 'Total Scores', calc: (s) => (s.score || 0) + (s.scoreFree || 0) + (s.score45 || 0) + (s.point65 || 0) },
+                                    {
+                                        id: 'scoringEfficiency', label: 'Scoring Efficiency %', calc: (s) => {
+                                            const att = (s.shotTaken || 0) + (s.freeWon || 0) + (s['45Won'] || 0) + (s.shot65 || 0);
+                                            const sco = (s.score || 0) + (s.scoreFree || 0) + (s.score45 || 0) + (s.point65 || 0);
+                                            return att > 0 ? Math.round((sco / att) * 100) + '%' : '0%';
+                                        }
+                                    }
+                                ].map(derived => (
+                                    <tr key={derived.id} style={{ borderBottom: '1px solid #333', backgroundColor: '#1a237e' }}>
+                                        <td style={{
+                                            padding: '10px',
+                                            position: 'sticky',
+                                            left: 0,
+                                            backgroundColor: '#1a237e',
+                                            zIndex: 5,
+                                            borderRight: '1px solid #333',
+                                            borderBottom: '1px solid #333',
+                                            fontWeight: 'bold',
+                                            color: '#8c9eff',
+                                            fontSize: '0.85rem'
+                                        }}>
+                                            {derived.label}
+                                        </td>
+                                        {activePlayers.map(player => {
+                                            const isCollapsed = collapsedPlayers.includes(player.id);
+                                            const dataId = idMapping[player.id] || player.id;
+                                            const stats = playerStats[dataId] || {};
+                                            const value = derived.calc(stats);
+
+                                            if (isCollapsed) return <td key={player.id} style={{ borderBottom: '1px solid #333', borderRight: '1px solid #333' }}></td>;
+
+                                            return (
+                                                <td key={player.id} style={{
+                                                    padding: '10px',
+                                                    textAlign: 'center',
+                                                    borderBottom: '1px solid #333',
+                                                    borderRight: '1px solid #333',
+                                                    color: '#fff',
+                                                    fontWeight: 'bold',
+                                                    fontSize: '1.1rem'
+                                                }}>
+                                                    {value}
                                                 </td>
                                             );
                                         })}

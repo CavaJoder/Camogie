@@ -29,7 +29,7 @@ const InputGroup = ({ label, value, onChange, type = 'text', disabled }) => (
 );
 
 const SettingsView = () => {
-    const { matchInfo, updateMatchInfo, timer, resetMatch, goLive, stopLive, matchId, isAdmin, matchList, loadMatchList, loadMatch } = useMatch();
+    const { matchInfo, updateMatchInfo, timer, resetMatch, goLive, stopLive, matchId, loadedMatchId, saveMatch, isAdmin, matchList, loadMatchList, loadMatch } = useMatch();
     const isMatchComplete = timer.quarter === 'FT';
 
     useEffect(() => {
@@ -192,6 +192,34 @@ const SettingsView = () => {
                 onChange={(v) => updateMatchInfo('awayTeam', v)}
                 disabled={isMatchComplete}
             />
+
+            <div style={{ marginBottom: '24px' }}>
+                <label style={{ display: 'block', color: '#b0b0b0', marginBottom: '8px', fontSize: '0.9rem' }}>
+                    Team Perspective
+                </label>
+                <select
+                    value={matchInfo.perspective || ''}
+                    onChange={(e) => updateMatchInfo('perspective', e.target.value)}
+                    disabled={isMatchComplete}
+                    style={{
+                        width: '100%',
+                        padding: '12px',
+                        backgroundColor: isMatchComplete ? '#121212' : '#1e1e1e',
+                        border: '1px solid #333',
+                        borderRadius: '6px',
+                        color: 'white',
+                        fontSize: '1rem',
+                        cursor: isMatchComplete ? 'not-allowed' : 'pointer'
+                    }}
+                >
+                    <option value="">-- No Perspective (Default) --</option>
+                    {matchInfo.homeTeam && <option value={matchInfo.homeTeam}>{matchInfo.homeTeam} (Home)</option>}
+                    {matchInfo.awayTeam && <option value={matchInfo.awayTeam}>{matchInfo.awayTeam} (Away)</option>}
+                </select>
+                <p style={{ fontSize: '0.8rem', color: '#666', marginTop: '4px' }}>
+                    Indicates which team "Own" stats (Pressures, Puckouts, Rucks) refer to in the Log.
+                </p>
+            </div>
             <InputGroup
                 label="Date"
                 type="date"
@@ -288,7 +316,7 @@ const SettingsView = () => {
                         const testId = "debug_" + Math.floor(Math.random() * 10000);
                         try {
                             if (window.confirm("Create a test match to verify database connection?")) {
-                                await set(ref(db, `matches / ${testId} `), {
+                                await set(ref(db, `matches/${testId}`), {
                                     matchInfo: {
                                         homeTeam: "Debug Home",
                                         awayTeam: "Debug Away",
@@ -318,12 +346,60 @@ const SettingsView = () => {
                 </button>
             </div>
 
+            {/* Manual Save UI if a match is loaded for editing */}
+            {loadedMatchId && (
+                <div style={{ padding: '16px', backgroundColor: '#1e1e1e', borderRadius: '8px', border: '1px solid #bb86fc', marginBottom: '24px' }}>
+                    <div style={{ marginBottom: '10px', color: '#fff' }}>
+                        <span style={{ color: '#b0b0b0' }}>Status: </span>
+                        <span style={{ color: '#bb86fc', fontWeight: 'bold' }}>● Editing Locally</span>
+                        <div style={{ fontSize: '0.9rem', color: '#666', marginTop: '4px' }}>
+                            Changes are NOT saved automatically.
+                        </div>
+                    </div>
+                    <button
+                        onClick={saveMatch}
+                        style={{
+                            width: '100%',
+                            marginBottom: '10px',
+                            padding: '12px',
+                            backgroundColor: '#bb86fc',
+                            color: 'black',
+                            fontWeight: 'bold',
+                            border: 'none',
+                            borderRadius: '6px',
+                            cursor: 'pointer'
+                        }}
+                    >
+                        Save Changes to Database
+                    </button>
+                    <button
+                        onClick={() => {
+                            if (window.confirm('Close match without saving? (Unsaved changes will be lost)')) {
+                                resetMatch();
+                            }
+                        }}
+                        style={{
+                            width: '100%',
+                            padding: '12px',
+                            backgroundColor: '#cf6679',
+                            color: 'black',
+                            fontWeight: 'bold',
+                            border: 'none',
+                            borderRadius: '6px',
+                            cursor: 'pointer'
+                        }}
+                    >
+                        Close Match
+                    </button>
+                </div>
+            )}
+
             <hr style={{ borderColor: '#333', margin: '32px 0' }} />
 
             {/* Real-Time Sync Section */}
             <h3 style={{ fontSize: '1.2rem', marginBottom: '16px', color: '#03dac6' }}>Real-Time Sync (Beta)</h3>
 
-            {!matchId ? (
+            {!matchId && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                     <button
                         onClick={() => {
@@ -380,36 +456,43 @@ const SettingsView = () => {
                         </button>
                     </div>
                 </div>
-            ) : (
-                <div style={{ backgroundColor: '#1e1e1e', padding: '16px', borderRadius: '8px', border: '1px solid #03dac6' }}>
-                    <div style={{ marginBottom: '10px' }}>
-                        <span style={{ color: '#b0b0b0' }}>Status: </span>
-                        <span style={{ color: '#03dac6', fontWeight: 'bold' }}>● {isAdmin ? 'Broadcasting' : 'Watching'}</span>
+
+            )
+            }
+
+            {/* Live Broadcast UI */}
+            {
+                matchId && (
+                    <div style={{ backgroundColor: '#1e1e1e', padding: '16px', borderRadius: '8px', border: '1px solid #03dac6' }}>
+                        <div style={{ marginBottom: '10px' }}>
+                            <span style={{ color: '#b0b0b0' }}>Status: </span>
+                            <span style={{ color: '#03dac6', fontWeight: 'bold' }}>● {isAdmin ? 'Broadcasting' : 'Watching'}</span>
+                        </div>
+                        <div style={{ marginBottom: '20px', fontSize: '1.2rem', fontWeight: 'bold', color: 'white' }}>
+                            Match ID: <span style={{ fontFamily: 'monospace', backgroundColor: '#333', padding: '4px 8px', borderRadius: '4px' }}>{matchId}</span>
+                        </div>
+                        <button
+                            onClick={() => {
+                                if (window.confirm('Disconnect from live session?')) {
+                                    stopLive();
+                                }
+                            }}
+                            style={{
+                                width: '100%',
+                                padding: '12px',
+                                backgroundColor: '#cf6679',
+                                color: '#000',
+                                fontWeight: 'bold',
+                                border: 'none',
+                                borderRadius: '6px',
+                                cursor: 'pointer'
+                            }}
+                        >
+                            Disconnect
+                        </button>
                     </div>
-                    <div style={{ marginBottom: '20px', fontSize: '1.2rem', fontWeight: 'bold', color: 'white' }}>
-                        Match ID: <span style={{ fontFamily: 'monospace', backgroundColor: '#333', padding: '4px 8px', borderRadius: '4px' }}>{matchId}</span>
-                    </div>
-                    <button
-                        onClick={() => {
-                            if (window.confirm('Disconnect from live session?')) {
-                                stopLive();
-                            }
-                        }}
-                        style={{
-                            width: '100%',
-                            padding: '12px',
-                            backgroundColor: '#cf6679',
-                            color: '#000',
-                            fontWeight: 'bold',
-                            border: 'none',
-                            borderRadius: '6px',
-                            cursor: 'pointer'
-                        }}
-                    >
-                        Disconnect
-                    </button>
-                </div>
-            )}
+                )
+            }
 
             {/* Connection Status Debug */}
             <div style={{ padding: '10px', backgroundColor: '#333', marginBottom: '20px', borderRadius: '8px', fontSize: '0.9rem', color: '#b0b0b0' }}>
@@ -487,13 +570,15 @@ const SettingsView = () => {
                                     `Match ID: ${id} `,
                                     `Match Info: ${data.matchInfo ? `Present (${data.matchInfo.homeTeam} vs ${data.matchInfo.awayTeam})` : 'MISSING'} `,
                                     `Stats: ${data.stats ? `Present (Scores: ${Object.keys(data.stats).length} qtrs)` : 'MISSING'} `,
+                                    `PitchStats Raw Keys: ${data.pitchStats ? JSON.stringify(Object.keys(data.pitchStats)) : 'NONE'}`,
+                                    `PitchStats Q1 Structure: ${data.pitchStats?.q1 ? JSON.stringify(data.pitchStats.q1).substr(0, 100) : (data.pitchStats?.Q1 ? 'Found as Q1' : 'Missing q1/Q1')}`,
                                     `Pitch Events: ${data.pitchStats ? `Present` : 'MISSING'} `,
                                     `Player Pressure(Heatmap): ${data.playerPressureStats ? `Present (${Array.isArray(data.playerPressureStats) ? data.playerPressureStats.length : Object.keys(data.playerPressureStats).length} players)` : 'MISSING'} `,
                                     `Analysis Data: ${data.playerAnalysis ? 'Present (playerAnalysis)' : (data.playAnalysis ? 'Present (playAnalysis)' : 'MISSING')} `,
                                     `Heatmap: ${data.heatMapEvents ? `Present (Q1:${(data.heatMapEvents.q1 || []).length}, Q2:${(data.heatMapEvents.q2 || []).length}, Q3:${(data.heatMapEvents.q3 || []).length}, Q4:${(data.heatMapEvents.q4 || []).length})` : 'MISSING'} `,
-                                    `Timer: ${data.timer ? `Present (${data.timer.quarter})` : 'MISSING'} `
+                                    `Timer: ${data.timer ? `Present (${data.timer.quarter})` : 'MISSING (Will infer from stats)'} `
                                 ];
-                                output.innerHTML = report.join('<br/>');
+                                output.innerHTML = report.join('<br/><br/>');
                             } else {
                                 output.innerHTML = "Match ID not found in database.";
                             }

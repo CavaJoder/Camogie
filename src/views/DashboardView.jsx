@@ -52,8 +52,8 @@ const DashboardView = () => {
             case 'scores':
                 // Sum of all successful scores from pitch
                 return allScores.filter(s => s && ['point', 'goal', 'free', '45', 'penalty'].includes(s.type)).length;
-            case 'wides':
-                return allScores.filter(s => s && s.type === 'wide').length;
+            case 'totalShots':
+                return allScores.filter(s => s && ['point', 'goal', 'free', '45', 'penalty', 'wide'].includes(s.type)).length;
             default:
                 return 0;
         }
@@ -297,36 +297,34 @@ const DashboardView = () => {
                 total += oppPoss;
             } else if (type === 'attack') {
                 // Attack Efficiency: Scores vs Attempts
-                const shots = getStatValue(q, 'shotTaken') + pitch.totalShots;
-                const score = getStatValue(q, 'score') + pitch.successfulScores;
+                const shots = getStatValue(q, 'shotTaken') + getStatValue(q, 'freeWon') + getStatValue(q, '45Won') + getStatValue(q, 'shot65');
+                const score = getStatValue(q, 'score') + getStatValue(q, 'scoreFree') + getStatValue(q, 'score45') + getStatValue(q, 'point65');
                 value += score;
                 total += shots;
+            } else if (type === 'ownPuckouts') {
+                const tot = getStatValue(q, 'ownPuckout') + pitch.ownPuckouts;
+                const won = getStatValue(q, 'ownPuckoutWon') + pitch.ownWon;
+                value += won;
+                total += tot;
+            } else if (type === 'oppPuckouts') {
+                const tot = getStatValue(q, 'oppPuckout') + pitch.oppPuckouts;
+                const won = getStatValue(q, 'oppPuckoutWon') + pitch.oppWon;
+                value += won;
+                total += tot;
             } else if (type === 'puckouts') {
-                // Puckouts Won vs Total (Own + Opp combined? Dashboard says 'Puckouts' title, usually implies Own)
-                // Actually the Puckout card usually splits Own/Opp, but 'puckouts' type here sums raw numbers?
-                // Let's look at SummaryCard usage. It's used for "Puckouts Won".
-                // If it's overall puckouts, we sum both?
-                // Wait, default dashboard usually has specific sections.
-                // Let's assume Own Puckouts validation for now or Total Puckout dominance.
+                // Legacy: sum both
                 const tot = getStatValue(q, 'oppPuckout') + getStatValue(q, 'ownPuckout') + pitch.ownPuckouts + pitch.oppPuckouts;
                 const won = getStatValue(q, 'oppPuckoutWon') + getStatValue(q, 'ownPuckoutWon') + pitch.ownWon + pitch.oppWon;
                 value += won;
                 total += tot;
             } else if (type === 'conversion') {
                 const entries = getStatValue(q, 'ballInside65');
-                const shots = getStatValue(q, 'shotTaken') + pitch.totalShots;
+                const shots = getStatValue(q, 'shotTaken') + getStatValue(q, 'freeWon') + getStatValue(q, '45Won') + getStatValue(q, 'shot65');
                 value += shots;
                 total += entries;
-            } else if (type === 'efficiency') {
-                // Scoring Efficiency
-                const shots = getStatValue(q, 'shotTaken') + pitch.totalShots;
-                const score = getStatValue(q, 'score') + pitch.successfulScores;
-                value += score;
-                total += shots;
-            } else if (type === 'scoring') {
-                // Same as efficiency? Dashboard usage might differ.
-                const shots = getStatValue(q, 'shotTaken') + pitch.totalShots;
-                const scores = getStatValue(q, 'score') + pitch.successfulScores;
+            } else if (type === 'efficiency' || type === 'scoring') {
+                const shots = getStatValue(q, 'shotTaken') + getStatValue(q, 'freeWon') + getStatValue(q, '45Won') + getStatValue(q, 'shot65');
+                const scores = getStatValue(q, 'score') + getStatValue(q, 'scoreFree') + getStatValue(q, 'score45') + getStatValue(q, 'point65');
                 value += scores;
                 total += shots;
             } else if (type === 'freeRate') {
@@ -495,10 +493,10 @@ const DashboardView = () => {
 
     // --- New Stats Calculations for Visual Analysis ---
 
-    // Shooting Analysis
+    // Shooting Analysis (Aggregating Buttons ONLY)
     const totalAttacks = sumStats('ballInside65');
-    const totalShots = sumStats('shotTaken');
-    const totalScores = sumStats('score');
+    const totalShots = sumStats('shotTaken') + sumStats('freeWon') + sumStats('45Won') + sumStats('shot65');
+    const totalScores = sumStats('score') + sumStats('scoreFree') + sumStats('score45') + sumStats('point65');
     const territorialEffectiveness = totalAttacks > 0 ? Math.round((totalShots / totalAttacks) * 100) : 0;
     const shotEfficiency = totalShots > 0 ? Math.round((totalScores / totalShots) * 100) : 0;
 
@@ -623,10 +621,10 @@ const DashboardView = () => {
                     <SummaryCard title="Pressures (Won/Total)" type="possession" />
 
                     <SummaryCard title="Rucks (Won/Total)" type="rucks" />
-                    <SummaryCard title="Puckouts (Won/Total)" type="puckouts" />
+                    <SummaryCard title="Own Puckouts (Won/Total)" type="ownPuckouts" />
+                    <SummaryCard title="Opp Puckouts (Won/Total)" type="oppPuckouts" />
                     <SummaryCard title="Shot Attempts (Entries to Shots)" type="conversion" />
                     <SummaryCard title="Scoring Efficiency (Shots to Scores)" type="attack" />
-                    <SummaryCard title="Free Rate (Frees/Pressures)" type="freeRate" />
                 </div>
 
                 {/* Detailed Statistics */}
@@ -674,7 +672,7 @@ const DashboardView = () => {
                     <StatRow label="Opp Possessions" statId="oppPossessions" />
                     <StatRow label="Pressures" statId="pressures" />
                     <StatRow label="Turnovers" statId="turnovers" />
-                    <StatRow label="Frees Against" statId="freesAgainst" />
+                    <StatRow label="Free Against" statId="freesAgainst" />
                 </div>
 
                 <div style={{ marginBottom: '24px' }}>
@@ -686,7 +684,7 @@ const DashboardView = () => {
                     <StatRow label="Short" statId="short" />
                     <StatRow label="Saved" statId="saved" />
                     <StatRow label="Off Post" statId="offPost" />
-                    <StatRow label="Frees Won Insid" statId="freeWon" />
+                    <StatRow label="Free Won Inside 65" statId="freeWon" />
                     <StatRow label="45s Won" statId="45Won" />
                     <StatRow label="Penalty Won" statId="penaltyWon" />
                     <StatRow label="Score from Free" statId="scoreFree" />
@@ -707,7 +705,7 @@ const DashboardView = () => {
                         pageBreakInside: 'avoid',
                         pageBreakBefore: isPdfMode ? 'always' : 'auto'
                     }}>
-                        <h3 style={{ fontSize: '1.2rem', marginBottom: '25px', color: isPdfMode ? '#000' : '#bb86fc', textAlign: 'center', textTransform: 'uppercase', letterSpacing: '1px' }}>Frees Analysis</h3>
+                        <h3 style={{ fontSize: '1.2rem', marginBottom: '25px', color: isPdfMode ? '#000' : '#bb86fc', textAlign: 'center', textTransform: 'uppercase', letterSpacing: '1px' }}>Free Analysis</h3>
                         <div style={{ display: 'flex', justifyContent: 'center', gap: '20px', width: '100%', borderBottom: isPdfMode ? '1px solid #ddd' : '1px solid #333', paddingBottom: '20px' }}>
                             <div style={{ textAlign: 'center', flex: 1 }}>
                                 <div style={{ fontSize: '0.8rem', color: isPdfMode ? '#666' : '#b0b0b0', textTransform: 'uppercase' }}>{matchInfo.homeTeam || 'Home'} Conceded</div>
@@ -812,7 +810,7 @@ const DashboardView = () => {
                             maxWidth: '100%',
                             textAlign: 'center'
                         }}>
-                            <h4 style={{ color: isPdfMode ? '#000' : '#bb86fc', marginBottom: '10px', borderBottom: isPdfMode ? '1px solid #ccc' : '1px solid #444', paddingBottom: '5px', textTransform: 'uppercase', letterSpacing: '1px', fontSize: '0.9rem' }}>KPI: Frees Analysis (Discipline & Defensive Quality)</h4>
+                            <h4 style={{ color: isPdfMode ? '#000' : '#bb86fc', marginBottom: '10px', borderBottom: isPdfMode ? '1px solid #ccc' : '1px solid #444', paddingBottom: '5px', textTransform: 'uppercase', letterSpacing: '1px', fontSize: '0.9rem' }}>KPI: Free Analysis (Discipline & Defensive Quality)</h4>
                             <p style={{ margin: '0 0 10px 0' }}><strong>What it measures:</strong> The volume and location of fouls conceded, indicating defensive discipline and the quality of the tackle.</p>
 
                             <div style={{ marginTop: '15px' }}>
@@ -858,7 +856,7 @@ const DashboardView = () => {
                                     onChange={(e) => setShowFreesInPdf(e.target.checked)}
                                     style={{ transform: 'scale(1.2)', cursor: 'pointer' }}
                                 />
-                                <span style={{ color: isPdfMode ? '#000' : '#fff', fontSize: '0.9rem' }}>Include Frees Analysis</span>
+                                <span style={{ color: isPdfMode ? '#000' : '#fff', fontSize: '0.9rem' }}>Include Free Analysis</span>
                             </label>
                         </div>
                     </div>
@@ -870,7 +868,7 @@ const DashboardView = () => {
                         <>
                             <div style={{ marginTop: '40px', pageBreakInside: 'avoid', pageBreakBefore: isPdfMode ? 'always' : 'auto' }}>
                                 <h2 style={{ fontSize: '1.8rem', fontWeight: 'bold', color: isPdfMode ? '#000' : '#bb86fc', marginBottom: '20px', textAlign: 'center' }}>Pitch Maps - 1st Half</h2>
-                                <div style={{ display: 'grid', gridTemplateColumns: isPdfMode ? '1fr 1fr' : '1fr', gap: '20px' }}>
+                                <div style={{ display: 'grid', gridTemplateColumns: isPdfMode ? '1fr' : '1fr', gap: '20px' }}>
                                     <div style={{ backgroundColor: isPdfMode ? 'transparent' : '#1e1e1e', padding: '10px', borderRadius: '8px', border: isPdfMode ? 'none' : '1px solid #333' }}>
                                         <h3 style={{ textAlign: 'center', fontSize: '0.9rem', marginBottom: '10px', color: isPdfMode ? '#000' : '#03dac6' }}>HOME: {matchInfo.homeTeam} Scores</h3>
                                         <PitchSummary data={firstHalfScores.filter(s => s.team === 'home')} type="scores" />
@@ -882,9 +880,14 @@ const DashboardView = () => {
                                 </div>
                             </div>
 
-                            <div style={{ marginTop: '40px', pageBreakInside: 'avoid', pageBreakBefore: isPdfMode ? 'always' : 'auto' }}>
+                            <div style={{
+                                marginTop: '40px',
+                                paddingTop: isPdfMode ? '40px' : '0',
+                                pageBreakInside: 'avoid',
+                                pageBreakBefore: isPdfMode ? 'always' : 'auto'
+                            }}>
                                 <h2 style={{ fontSize: '1.8rem', fontWeight: 'bold', color: isPdfMode ? '#000' : '#bb86fc', marginBottom: '20px', textAlign: 'center' }}>Pitch Maps - 2nd Half</h2>
-                                <div style={{ display: 'grid', gridTemplateColumns: isPdfMode ? '1fr 1fr' : '1fr', gap: '20px' }}>
+                                <div style={{ display: 'grid', gridTemplateColumns: isPdfMode ? '1fr' : '1fr', gap: '20px' }}>
                                     <div style={{ backgroundColor: isPdfMode ? 'transparent' : '#1e1e1e', padding: '10px', borderRadius: '8px', border: isPdfMode ? 'none' : '1px solid #333' }}>
                                         <h3 style={{ textAlign: 'center', fontSize: '0.9rem', marginBottom: '10px', color: isPdfMode ? '#000' : '#03dac6' }}>HOME: {matchInfo.homeTeam} Scores</h3>
                                         <PitchSummary data={secondHalfScores.filter(s => s.team === 'home')} type="scores" />
@@ -974,7 +977,7 @@ const DashboardView = () => {
                                 </div>
                                 <div style={{ borderLeft: isPdfMode ? '1px solid #ccc' : '1px solid #333' }}></div>
                                 <div style={{ textAlign: 'center', flex: 1 }}>
-                                    <div style={{ fontSize: '0.75rem', color: isPdfMode ? '#666' : '#b0b0b0', textTransform: 'uppercase' }}>Frees Against</div>
+                                    <div style={{ fontSize: '0.75rem', color: isPdfMode ? '#666' : '#b0b0b0', textTransform: 'uppercase' }}>Free Against</div>
                                     <div style={{ fontSize: '1.8rem', fontWeight: 'bold', color: '#ff9800' }}>{totalFreesAgainst}</div>
                                 </div>
                             </div>
@@ -1039,10 +1042,12 @@ const DashboardView = () => {
                     </div>
 
                     {/* Shot Analysis Hero Section */}
+                    {isPdfMode && <div style={{ pageBreakBefore: 'always', height: '1px' }}></div>}
                     <div className="chart-container" style={{
                         marginBottom: '40px',
                         backgroundColor: isPdfMode ? '#f5f5f5' : '#1e1e1e',
                         padding: '30px',
+                        paddingTop: isPdfMode ? '80px' : '30px',
                         borderRadius: '12px',
                         border: isPdfMode ? '1px solid #ccc' : '1px solid #333',
                         pageBreakInside: 'avoid',
@@ -1057,7 +1062,7 @@ const DashboardView = () => {
                                 <div style={{ fontSize: '11.25rem', fontWeight: 'bold', color: getPctColor(territorialEffectiveness), lineHeight: '1.1' }}>
                                     {territorialEffectiveness}%
                                 </div>
-                                <div style={{ fontSize: '0.8rem', color: isPdfMode ? '#888' : '#666', marginTop: '5px' }}>Shots Taken (Entries {totalAttacks} / Shots {totalShots})</div>
+                                <div style={{ fontSize: '0.8rem', color: isPdfMode ? '#888' : '#666', marginTop: '5px' }}>Shots Taken (Including frees, 45, 65) (Entries {totalAttacks} / Shots {totalShots})</div>
 
                                 {/* Sub-Hero Row: Efficiency & Frees Won -> Scaled to 3.5rem */}
                                 <div style={{ display: 'flex', justifyContent: 'center', gap: '30px', marginTop: '15px' }}>
@@ -1086,12 +1091,17 @@ const DashboardView = () => {
                                 <div style={{ borderLeft: isPdfMode ? '1px solid #ddd' : '1px solid #333' }}></div>
                                 <div style={{ textAlign: 'center', flex: 1 }}>
                                     <div style={{ fontSize: '0.8rem', color: isPdfMode ? '#666' : '#b0b0b0', textTransform: 'uppercase' }}>Scores from Play</div>
-                                    <div style={{ fontSize: '1.8rem', fontWeight: 'bold', color: '#4caf50' }}>{totalScores}</div>
+                                    <div style={{ fontSize: '1.8rem', fontWeight: 'bold', color: '#4caf50' }}>{sumStats('score')}</div>
                                 </div>
                                 <div style={{ borderLeft: isPdfMode ? '1px solid #ddd' : '1px solid #333' }}></div>
                                 <div style={{ textAlign: 'center', flex: 1 }}>
-                                    <div style={{ fontSize: '0.8rem', color: isPdfMode ? '#666' : '#b0b0b0', textTransform: 'uppercase' }}>Scores From Frees</div>
+                                    <div style={{ fontSize: '0.8rem', color: isPdfMode ? '#666' : '#b0b0b0', textTransform: 'uppercase' }}>Scores From Free</div>
                                     <div style={{ fontSize: '1.8rem', fontWeight: 'bold', color: '#4caf50' }}>{sumStats('scoreFree')}</div>
+                                </div>
+                                <div style={{ borderLeft: isPdfMode ? '1px solid #ddd' : '1px solid #333' }}></div>
+                                <div style={{ textAlign: 'center', flex: 1 }}>
+                                    <div style={{ fontSize: '0.8rem', color: isPdfMode ? '#666' : '#b0b0b0', textTransform: 'uppercase' }}>Score from 45/65</div>
+                                    <div style={{ fontSize: '1.8rem', fontWeight: 'bold', color: '#4caf50' }}>{sumStats('score45') + sumStats('point65')}</div>
                                 </div>
                             </div>
 

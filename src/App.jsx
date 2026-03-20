@@ -14,8 +14,7 @@ import PuckoutsView from './views/PuckoutsView';
 import ScoresView from './views/ScoresView';
 import SquadsView from './views/SquadsView';
 import PlayerAnalysisView from './views/PlayerAnalysisView';
-import ManualEntryView from './views/ManualEntryView';
-import ManualDashboardView from './views/ManualDashboardView';
+import MatchLogView from './views/MatchLogView';
 import ClientView from './views/ClientView';
 import TeamSheetsView from './views/TeamSheetsView';
 import HeatMapView from './views/HeatMapView';
@@ -42,8 +41,7 @@ const MainContent = () => {
       case 'scores': return <ScoresView />;
       case 'squads': return <SquadsView />;
       case 'playerAnalysis': return <PlayerAnalysisView />;
-      case 'manual': return <ManualEntryView />;
-      case 'manualDashboard': return <ManualDashboardView />;
+      case 'matchLog': return <MatchLogView />;
       case 'teamSheets': return <TeamSheetsView />;
       case 'heatMap': return <HeatMapView />;
       default: return <RecordView />;
@@ -53,7 +51,7 @@ const MainContent = () => {
   const isFullScreen = ['playerAnalysis', 'squads', 'settings', 'teamSheets', 'heatMap'].includes(activeTab);
 
   return (
-    <div style={{ paddingTop: isFullScreen ? '0px' : '180px' }}>
+    <div style={{ paddingTop: isFullScreen ? '0px' : '280px' }}>
       {!isFullScreen && <Header />}
       <main>
         {renderView()}

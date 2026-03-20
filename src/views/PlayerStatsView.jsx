@@ -7,9 +7,14 @@ import PitchSummary from '../components/PitchSummary';
 const PlayerStatsView = () => {
     const { stats, matchInfo, pitchStats } = useMatch();
 
+    const getStatValue = (q, statId) => {
+        const val = stats[q]?.[statId] || 0;
+        return typeof val === 'object' ? (val.home || 0) : val;
+    };
+
     const sumStats = (statId) => {
         return ['q1', 'q2', 'q3', 'q4'].reduce((total, q) => {
-            return total + (stats[q]?.[statId] || 0);
+            return total + getStatValue(q, statId);
         }, 0);
     };
 
@@ -26,10 +31,24 @@ const PlayerStatsView = () => {
     const firstHalfPuckouts = (pitchStats?.puckouts || []).filter(p => p && ['Q1', 'Q2'].includes(p.quarter));
     const secondHalfPuckouts = (pitchStats?.puckouts || []).filter(p => p && ['Q3', 'Q4', 'FT'].includes(p.quarter));
 
+    const getPitchTotal = (category) => {
+        const allScores = (pitchStats?.scores || []);
+        switch (category) {
+            case 'scores':
+                return allScores.filter(s => s && ['point', 'goal', 'free', '45', 'penalty'].includes(s.type)).length;
+            case 'totalShots':
+                return allScores.filter(s => s && ['point', 'goal', 'free', '45', 'penalty', 'wide'].includes(s.type)).length;
+            case 'wide':
+                return allScores.filter(s => s && s.type === 'wide').length;
+            default:
+                return 0;
+        }
+    };
+
     // Data for Charts
     const shotData = [
-        { name: 'Scores', value: sumStats('score'), color: '#4caf50' },
-        { name: 'Wides', value: sumStats('wide'), color: '#cf6679' },
+        { name: 'Scores', value: sumStats('score') + sumStats('scoreFree') + sumStats('score45') + sumStats('point65'), color: '#4caf50' },
+        { name: 'Wides', value: sumStats('wide') + sumStats('wide65'), color: '#cf6679' },
         { name: 'Short', value: sumStats('short'), color: '#ff9800' },
         { name: 'Saved', value: sumStats('saved'), color: '#ff9800' },
     ].filter(d => d.value > 0);
@@ -37,14 +56,14 @@ const PlayerStatsView = () => {
     // Pressure Bar Chart Data (Quarterly)
     const pressureBarData = ['q1', 'q2', 'q3', 'q4'].map(q => ({
         name: q.toUpperCase(),
-        Possessions: stats[q]?.oppPossessions || 0,
-        Pressures: stats[q]?.pressures || 0
+        Possessions: getStatValue(q, 'oppPossessions'),
+        Pressures: getStatValue(q, 'pressures')
     }));
 
     // Ruck Bar Chart Data (Quarterly)
     const ruckBarData = ['q1', 'q2', 'q3', 'q4'].map(q => {
-        const total = (stats[q]?.defRuck || 0) + (stats[q]?.midRuck || 0) + (stats[q]?.offRuck || 0);
-        const won = (stats[q]?.defRuckWon || 0) + (stats[q]?.midRuckWon || 0) + (stats[q]?.offRuckWon || 0);
+        const total = getStatValue(q, 'defRuck') + getStatValue(q, 'midRuck') + getStatValue(q, 'offRuck');
+        const won = getStatValue(q, 'defRuckWon') + getStatValue(q, 'midRuckWon') + getStatValue(q, 'offRuckWon');
         return {
             name: q.toUpperCase(),
             Total: total,
@@ -66,8 +85,8 @@ const PlayerStatsView = () => {
 
     // Shooting Analysis
     const totalAttacks = sumStats('ballInside65');
-    const totalShots = sumStats('shotTaken');
-    const totalScores = sumStats('score');
+    const totalShots = sumStats('shotTaken') + sumStats('freeWon') + sumStats('45Won') + sumStats('shot65');
+    const totalScores = sumStats('score') + sumStats('scoreFree') + sumStats('score45') + sumStats('point65');
     const totalFreesWon = sumStats('freeWon');
     const territorialEffectiveness = totalAttacks > 0 ? Math.round((totalShots / totalAttacks) * 100) : 0;
     const shotEfficiency = totalShots > 0 ? Math.round((totalScores / totalShots) * 100) : 0;
@@ -246,7 +265,7 @@ const PlayerStatsView = () => {
                             <div style={{ fontSize: '11.25rem', fontWeight: 'bold', color: getPctColor(territorialEffectiveness), lineHeight: '1.1' }}>
                                 {territorialEffectiveness}%
                             </div>
-                            <div style={{ fontSize: '0.8rem', color: isPdfMode ? '#888' : '#666', marginTop: '5px' }}>Shots Taken (Entries {totalAttacks} / Shots {totalShots})</div>
+                            <div style={{ fontSize: '0.8rem', color: isPdfMode ? '#888' : '#666', marginTop: '5px' }}>Shots Taken (Including frees, 45, 65) (Entries {totalAttacks} / Shots {totalShots})</div>
                         </div>
 
                         {/* Sub-Hero Row: Efficiency & Frees Won -> Scaled to 3.5rem */}
@@ -269,12 +288,17 @@ const PlayerStatsView = () => {
                             <div style={{ borderLeft: isPdfMode ? '1px solid #ddd' : '1px solid #333' }}></div>
                             <div style={{ textAlign: 'center', flex: 1 }}>
                                 <div style={{ fontSize: '0.8rem', color: isPdfMode ? '#666' : '#b0b0b0', textTransform: 'uppercase' }}>Scores from Play</div>
-                                <div style={{ fontSize: '1.8rem', fontWeight: 'bold', color: '#4caf50' }}>{totalScores}</div>
+                                <div style={{ fontSize: '1.8rem', fontWeight: 'bold', color: '#4caf50' }}>{sumStats('score')}</div>
                             </div>
                             <div style={{ borderLeft: isPdfMode ? '1px solid #ddd' : '1px solid #333' }}></div>
                             <div style={{ textAlign: 'center', flex: 1 }}>
-                                <div style={{ fontSize: '0.8rem', color: isPdfMode ? '#666' : '#b0b0b0', textTransform: 'uppercase' }}>Scores From Frees</div>
+                                <div style={{ fontSize: '0.8rem', color: isPdfMode ? '#666' : '#b0b0b0', textTransform: 'uppercase' }}>Scores From Free</div>
                                 <div style={{ fontSize: '1.8rem', fontWeight: 'bold', color: '#4caf50' }}>{sumStats('scoreFree')}</div>
+                            </div>
+                            <div style={{ borderLeft: isPdfMode ? '1px solid #ddd' : '1px solid #333' }}></div>
+                            <div style={{ textAlign: 'center', flex: 1 }}>
+                                <div style={{ fontSize: '0.8rem', color: isPdfMode ? '#666' : '#b0b0b0', textTransform: 'uppercase' }}>Score from 45/65</div>
+                                <div style={{ fontSize: '1.8rem', fontWeight: 'bold', color: '#4caf50' }}>{sumStats('score45') + sumStats('point65')}</div>
                             </div>
                         </div>
 
@@ -417,7 +441,7 @@ const PlayerStatsView = () => {
                             </div>
                             <div style={{ borderLeft: isPdfMode ? '1px solid #ddd' : '1px solid #333' }}></div>
                             <div style={{ textAlign: 'center', flex: 1 }}>
-                                <div style={{ fontSize: '0.75rem', color: isPdfMode ? '#666' : '#b0b0b0', textTransform: 'uppercase' }}>Frees Against</div>
+                                <div style={{ fontSize: '0.75rem', color: isPdfMode ? '#666' : '#b0b0b0', textTransform: 'uppercase' }}>Free Against</div>
                                 <div style={{ fontSize: '1.8rem', fontWeight: 'bold', color: '#ff9800' }}>{totalFreesAgainst}</div>
                             </div>
                         </div>

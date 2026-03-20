@@ -7,8 +7,6 @@ import PuckoutsView from './PuckoutsView';
 
 const RecordView = () => {
     const { stats, timer, updateStat, addPitchEvent, matchInfo, setQuarter } = useMatch();
-    const [freeLocation, setFreeLocation] = React.useState('Middle');
-    const [freeType, setFreeType] = React.useState('Other');
 
     // Helper to get current count safely
     const getCount = (id) => {
@@ -17,17 +15,22 @@ const RecordView = () => {
             return ['q1', 'q2', 'q3', 'q4'].reduce((total, q) => {
                 const qStats = stats[q] || {};
                 const statVal = qStats[id] || { home: 0, away: 0 };
-                // Sum home value (assuming these buttons track 'home' perspective mainly)
-                // If it's something like 'oppPossessions', it's still stored under 'home' key typically if generic?
-                // Let's check updateStat logic below.
                 const val = typeof statVal === 'object' ? (statVal.home || 0) : statVal;
                 return total + val;
             }, 0);
         }
         const currentQStats = stats[timer.quarter.toLowerCase()] || {};
         const statVal = currentQStats[id] || { home: 0, away: 0 };
-        // Return number (home value)
         return typeof statVal === 'object' ? (statVal.home || 0) : statVal;
+    };
+
+    const getTotalCount = (id) => {
+        return ['q1', 'q2', 'q3', 'q4', 'ft'].reduce((total, q) => {
+            const qStats = stats[q] || {};
+            const statVal = qStats[id] || { home: 0, away: 0 };
+            const val = typeof statVal === 'object' ? (statVal.home || 0) : statVal;
+            return total + val;
+        }, 0);
     };
 
     const categories = [
@@ -36,7 +39,7 @@ const RecordView = () => {
             items: [
                 { id: 'oppPossessions', label: 'Opp Possessions', color: '#bb86fc' },
                 { id: 'pressures', label: 'Pressures', color: '#bb86fc' },
-                { id: 'freesAgainst', label: 'Frees Against', color: '#bb86fc' },
+                { id: 'freesAgainst', label: 'Free Due To Pressure', color: '#bb86fc' },
                 { id: 'turnovers', label: 'Turnovers', color: '#bb86fc' },
             ]
         },
@@ -87,7 +90,7 @@ const RecordView = () => {
     const isReadOnly = timer.quarter === 'FT';
 
     return (
-        <div style={{ padding: '16px', paddingTop: '32px', paddingBottom: '80px' }}>
+        <div style={{ padding: '16px', paddingTop: '80px', paddingBottom: '80px' }}>
             {/* Quarter Selector for Editing */}
             <div style={{ marginBottom: '20px', padding: '12px', backgroundColor: '#1e1e1e', borderRadius: '8px', border: '1px solid #333' }}>
                 <label style={{ color: '#b0b0b0', display: 'block', marginBottom: '8px', fontSize: '0.9rem' }}>
@@ -187,77 +190,25 @@ const RecordView = () => {
                     textTransform: 'uppercase',
                     letterSpacing: '1px'
                 }}>
-                    Total Frees
+                    Free Section
                 </h3>
 
-                {/* Shared Multi-dropdown controls */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '15px' }}>
-                    <div>
-                        <label style={{ display: 'block', color: '#888', fontSize: '0.7rem', marginBottom: '4px' }}>Location</label>
-                        <select
-                            value={freeLocation}
-                            onChange={(e) => setFreeLocation(e.target.value)}
-                            style={{ width: '100%', padding: '8px', backgroundColor: '#1e1e1e', color: '#fff', border: '1px solid #333', borderRadius: '4px', fontSize: '0.9rem' }}
-                        >
-                            <option>Defence</option>
-                            <option>Middle</option>
-                            <option>Offence</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label style={{ display: 'block', color: '#888', fontSize: '0.7rem', marginBottom: '4px' }}>Free Type</label>
-                        <select
-                            value={freeType}
-                            onChange={(e) => setFreeType(e.target.value)}
-                            style={{ width: '100%', padding: '8px', backgroundColor: '#1e1e1e', color: '#fff', border: '1px solid #333', borderRadius: '4px', fontSize: '0.9rem' }}
-                        >
-                            {['Other', 'Dropped Hurley', 'Trip', 'Catch', 'Hold', 'Strike', 'Charge', 'Equipment', 'Obstruct', 'Shoulder', 'Dissent', 'Persistant Fouling', 'Pick off Ground', 'Touch on Ground', 'Throw', 'Throw Foul', 'Steps', 'Over carry', 'Chop', 'Hold Hurley', 'Push', 'Lying on Ball', 'Sandwich', 'Dangerous Play'].map(t => (
-                                <option key={t} value={t}>{t}</option>
-                            ))}
-                        </select>
-                    </div>
-                </div>
-
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                    {/* Team A (Home) */}
-                    <div style={{ padding: '10px', backgroundColor: '#121212', borderRadius: '8px', border: '1px solid #333' }}>
-                        <div style={{ color: matchInfo.homeTeamColor || '#bb86fc', fontSize: '0.8rem', fontWeight: 'bold', marginBottom: '8px', textAlign: 'center' }}>
-                            {matchInfo.homeTeam || 'Home'}
-                        </div>
-                        <StatButton
-                            label="Free Conceded"
-                            count={getCount('freeConcededHome')}
-                            color="#cf6679"
-                            disabled={isReadOnly}
-                            onIncrement={() => {
-                                if (!isReadOnly) {
-                                    updateStat(timer.quarter.toLowerCase(), 'freeConcededHome', 'home', 1);
-                                    addPitchEvent(timer.quarter.toLowerCase(), 'frees', { team: 'home', location: freeLocation, type: freeType, quarter: timer.quarter });
-                                }
-                            }}
-                            onDecrement={() => !isReadOnly && updateStat(timer.quarter.toLowerCase(), 'freeConcededHome', 'home', -1)}
-                        />
-                    </div>
-
-                    {/* Team B (Away) */}
-                    <div style={{ padding: '10px', backgroundColor: '#121212', borderRadius: '8px', border: '1px solid #333' }}>
-                        <div style={{ color: matchInfo.awayTeamColor || '#bb86fc', fontSize: '0.8rem', fontWeight: 'bold', marginBottom: '8px', textAlign: 'center' }}>
-                            {matchInfo.awayTeam || 'Away'}
-                        </div>
-                        <StatButton
-                            label="Free Conceded"
-                            count={getCount('freeConcededAway')}
-                            color="#cf6679"
-                            disabled={isReadOnly}
-                            onIncrement={() => {
-                                if (!isReadOnly) {
-                                    updateStat(timer.quarter.toLowerCase(), 'freeConcededAway', 'away', 1); // Note: using 'away' team bucket for clarity
-                                    addPitchEvent(timer.quarter.toLowerCase(), 'frees', { team: 'away', location: freeLocation, type: freeType, quarter: timer.quarter });
-                                }
-                            }}
-                            onDecrement={() => !isReadOnly && updateStat(timer.quarter.toLowerCase(), 'freeConcededAway', 'away', -1)}
-                        />
-                    </div>
+                <div style={{ padding: '10px', backgroundColor: '#121212', borderRadius: '8px', border: '1px solid #333' }}>
+                    <StatButton
+                        label="Total Free Conceded"
+                        count={getCount('freeConcededHome')}
+                        color="#cf6679"
+                        disabled={isReadOnly}
+                        onIncrement={() => {
+                            if (!isReadOnly) {
+                                // Record the free in the CURRENT quarter, even though we display the total
+                                // updateStat handles the log entry, so we skip it in addPitchEvent
+                                updateStat(timer.quarter.toLowerCase(), 'freeConcededHome', 'home', 1);
+                                addPitchEvent(timer.quarter.toLowerCase(), 'frees', { team: 'home', quarter: timer.quarter }, true);
+                            }
+                        }}
+                        onDecrement={() => !isReadOnly && updateStat(timer.quarter.toLowerCase(), 'freeConcededHome', 'home', -1)}
+                    />
                 </div>
             </div>
 

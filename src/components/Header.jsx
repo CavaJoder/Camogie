@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { useMatch } from '../context/MatchContext';
 
 const Header = () => {
-    const { timer, matchInfo, pitchStats, startTimer, pauseTimer, endQuarter, resetMatch, isAdmin, isLive } = useMatch();
+    const { stats, timer, matchInfo, pitchStats, startTimer, pauseTimer, endQuarter, resetMatch, isAdmin, isLive } = useMatch();
 
     const formatTime = (min, sec) => {
         return `${min.toString().padStart(2, '0')}:${sec.toString().padStart(2, '0')}`;
@@ -111,12 +111,17 @@ const Header = () => {
             </div>
 
             <h1 style={{
-                margin: 0,
-                fontSize: '1.2rem',
+                color: '#fff',
+                fontSize: '1.4rem',
+                margin: '0 0 5px 0',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '10px',
                 fontWeight: '800',
                 letterSpacing: '-0.5px'
             }}>
-                Perf Tracker <span style={{ fontSize: '0.8rem', color: '#4caf50', fontWeight: 'bold' }}>v2.7.14 (VISUAL FIX)</span>
+                Perf Tracker <span style={{ fontSize: '0.8rem', color: '#4caf50', fontWeight: 'bold' }}>v2.21.0</span>
             </h1>
             {/* Timer Display */}
             <div style={{
@@ -145,6 +150,65 @@ const Header = () => {
                 }}>
                     {formatTime(timer.minutes, timer.seconds)}
                 </span>
+            </div>
+
+            {/* Live Half Metrics */}
+            <div style={{
+                display: 'flex',
+                gap: '20px',
+                marginBottom: '15px',
+                color: '#ffffff',
+                fontWeight: 'bold',
+                fontSize: '1.2rem',
+                textTransform: 'uppercase'
+            }}>
+                {(() => {
+                    const currentHalfQs = ['Q1', 'Q2'].includes(timer.quarter) ? ['q1', 'q2'] : ['q3', 'q4', 'ft'];
+                    const label = ['Q1', 'Q2'].includes(timer.quarter) ? '1ST HALF' : '2ND HALF';
+
+                    const getStatValue = (q, statId) => {
+                        const val = (stats && stats[q]) ? stats[q][statId] || 0 : 0;
+                        return typeof val === 'object' ? (val.home || 0) : val;
+                    };
+
+                    const sumHalfStat = (statId) => {
+                        return currentHalfQs.reduce((sum, q) => sum + getStatValue(q, statId), 0);
+                    };
+
+                    const sumTotalStat = (statId) => {
+                        return ['q1', 'q2', 'q3', 'q4', 'ft'].reduce((sum, q) => sum + getStatValue(q, statId), 0);
+                    };
+
+                    // Ruck Rate
+                    const totalRucks = sumHalfStat('defRuck') + sumHalfStat('midRuck') + sumHalfStat('offRuck');
+                    const wonRucks = sumHalfStat('defRuckWon') + sumHalfStat('midRuckWon') + sumHalfStat('offRuckWon');
+                    const ruckRate = totalRucks > 0 ? Math.round((wonRucks / totalRucks) * 100) : 0;
+
+                    // Pressure Rate
+                    const totalOppPoss = sumHalfStat('oppPossessions');
+                    const totalPressures = sumHalfStat('pressures');
+                    const pressureRate = totalOppPoss > 0 ? Math.round((totalPressures / totalOppPoss) * 100) : 0;
+
+                    // Free Count - User wants total running count of 'freeConcededHome'
+                    const freeCount = sumTotalStat('freeConcededHome');
+
+                    return (
+                        <>
+                            <div style={{ textAlign: 'center' }}>
+                                <div style={{ fontSize: '0.7rem', color: '#b0b0b0' }}>Ruck Rate</div>
+                                <div>{ruckRate}%</div>
+                            </div>
+                            <div style={{ textAlign: 'center' }}>
+                                <div style={{ fontSize: '0.7rem', color: '#b0b0b0' }}>Pressure</div>
+                                <div>{pressureRate}%</div>
+                            </div>
+                            <div style={{ textAlign: 'center' }}>
+                                <div style={{ fontSize: '0.7rem', color: '#b0b0b0' }}>Free</div>
+                                <div>{freeCount}</div>
+                            </div>
+                        </>
+                    );
+                })()}
             </div>
 
             {/* Controls - Only visible to Admin or if not Live */}

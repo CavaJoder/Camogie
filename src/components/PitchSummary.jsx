@@ -3,12 +3,12 @@ import React from 'react';
 const PitchSummary = ({ data, type, title }) => {
     // Score Types Configuration
     const scoreTypes = [
-        { id: 'point', label: 'Point', color: '#fff' },
-        { id: 'goal', label: 'Goal', color: '#000000' },
-        { id: 'wide', label: 'Wide', color: '#f44336' },
-        { id: '45', label: '45', color: '#ff9800' },
-        { id: 'free', label: 'Free', color: '#2196f3' },
-        { id: 'penalty', label: 'Penalty', color: '#9c27b0' }
+        { id: 'point', label: 'Point', color: '#4caf50' },   // Green
+        { id: 'goal', label: 'Goal', color: '#ffeb3b' },    // Yellow/Gold
+        { id: 'wide', label: 'Wide', color: '#ff5252' },    // Bright Red
+        { id: '45', label: '45', color: '#ff9800' },        // Orange
+        { id: 'free', label: 'Free', color: '#03dac6' },     // Teal
+        { id: 'penalty', label: 'Penalty', color: '#e91e63' } // Pink
     ];
 
     // Calculate event summaries
@@ -125,7 +125,7 @@ const PitchSummary = ({ data, type, title }) => {
                             const typeConfig = scoreTypes.find(t => t.id === item.type);
                             fillColor = typeConfig ? typeConfig.color : '#fff';
                         } else if (type === 'puckouts') {
-                            fillColor = item.outcome === 'won' ? '#4caf50' : '#f44336';
+                            fillColor = item.outcome === 'won' ? '#4caf50' : '#ff5252';
                         }
 
                         return (
@@ -133,10 +133,10 @@ const PitchSummary = ({ data, type, title }) => {
                                 key={index}
                                 cx={item.x}
                                 cy={item.y}
-                                r="3"
+                                r="4"
                                 fill={fillColor}
                                 stroke="black"
-                                strokeWidth="0.5"
+                                strokeWidth="0.8"
                             />
                         );
                     })}

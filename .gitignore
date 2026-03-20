@@ -125,3 +125,6 @@ dist
 
 # MacOS
 .DS_Store
+
+# Distribution archives
+*.zip
