@@ -144,6 +144,10 @@ export const MatchProvider = ({ children }) => {
   const [matchList, setMatchList] = useState([]);
   const [debugKeys, setDebugKeys] = useState([]); // Debugging: Raw keys from DB
 
+  // Ref for timer to avoid interval dependency resets
+  const timerRef = useRef(timer);
+  useEffect(() => { timerRef.current = timer; }, [timer]);
+
   // Effects for LocalStorage
   useEffect(() => localStorage.setItem('match_timer', JSON.stringify(timer)), [timer]);
   useEffect(() => localStorage.setItem('match_info', JSON.stringify(matchInfo)), [matchInfo]);
@@ -192,8 +196,12 @@ export const MatchProvider = ({ children }) => {
       if (snapshot.exists()) {
         const data = snapshot.val();
 
+        if (isAdmin) {
+          // Broadcaster is the Source of Truth; skip syncing back stale data.
+          return;
+        }
+
         // Incoming Sync: Always update local state to match DB
-        // (Unless we are Admin and actively writing? No, Firebase handles local echo well)
         if (data.timer) setTimer(data.timer);
         if (data.matchInfo) setMatchInfo(data.matchInfo); // Sync Match Info (Names, etc)
         if (data.stats) setStats(data.stats);
@@ -405,15 +413,16 @@ export const MatchProvider = ({ children }) => {
     return () => clearInterval(interval);
   }, [timer.isRunning]);
 
-  // Sync Timer periodically if Admin
+  // Sync Timer periodically if Admin (Fixed Dependency Loop)
   useEffect(() => {
     if (timer.isRunning && matchId && isAdmin) {
       const tick = setInterval(() => {
-        saveToDb('timer', timer);
+        // Use Ref value to avoid re-triggering this effect every second
+        saveToDb('timer', timerRef.current);
       }, 5000);
       return () => clearInterval(tick);
     }
-  }, [timer, matchId, isAdmin]);
+  }, [timer.isRunning, matchId, isAdmin]); // Timer removed from dependency array
 
 
   const endQuarter = () => {
@@ -501,9 +510,21 @@ export const MatchProvider = ({ children }) => {
       const nextState = { ...prev, [quarter]: nextQ };
       saveToDb('pitchStats', nextState);
 
+      // INTEGRATION: Sync with numeric stats (Puckouts only; Scores managed separately via Record buttons)
+      if (type === 'puckouts') {
+        const statId = event.team === 'home' ? 'ownPuckout' : 'oppPuckout';
+        updateStat(quarter, statId, event.team, 1);
+        if (event.outcome === 'won') {
+          updateStat(quarter, statId + 'Won', event.team, 1);
+        }
+      }
+
       // Auto-Log Pitch events (optional)
       if (!skipLog) {
-        addLogEntry(type === 'scores' ? (event.type || 'score') : type, event.team, event.details || '');
+        const logType = type === 'scores'
+          ? `${event.type || 'score'} (Pitch)`
+          : type;
+        addLogEntry(logType, event.team, event.details || '');
       }
 
       return nextState;
@@ -516,7 +537,16 @@ export const MatchProvider = ({ children }) => {
       if (!qStats || !qStats[type] || qStats[type].length === 0) return prev;
 
       const nextList = [...qStats[type]];
-      nextList.pop(); // Remove last
+      const removedEvent = nextList.pop(); // Remove last
+
+      // INTEGRATION: Sync with numeric stats (Puckouts only)
+      if (type === 'puckouts' && removedEvent) {
+        const statId = removedEvent.team === 'home' ? 'ownPuckout' : 'oppPuckout';
+        updateStat(quarter, statId, removedEvent.team, -1);
+        if (removedEvent.outcome === 'won') {
+          updateStat(quarter, statId + 'Won', removedEvent.team, -1);
+        }
+      }
 
       const nextState = { ...prev, [quarter]: { ...qStats, [type]: nextList } };
       saveToDb('pitchStats', nextState);
@@ -532,8 +562,17 @@ export const MatchProvider = ({ children }) => {
         return prev;
       }
       const list = qStats[type] || [];
-      // Filter by ID (assuming id is passed, not index)
+      const removedEvent = list.find(item => item && item.id === id);
       const nextList = list.filter(item => item && item.id !== id);
+
+      // INTEGRATION: Sync with numeric stats (Puckouts only)
+      if (type === 'puckouts' && removedEvent) {
+        const statId = removedEvent.team === 'home' ? 'ownPuckout' : 'oppPuckout';
+        updateStat(quarter, statId, removedEvent.team, -1);
+        if (removedEvent.outcome === 'won') {
+          updateStat(quarter, statId + 'Won', removedEvent.team, -1);
+        }
+      }
 
       const nextState = { ...prev, [quarter]: { ...qStats, [type]: nextList } };
       saveToDb('pitchStats', nextState);

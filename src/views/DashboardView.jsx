@@ -8,7 +8,7 @@ const DashboardView = () => {
     const { stats, timer, matchInfo, pitchStats } = useMatch();
     const [isPdfMode, setIsPdfMode] = useState(false);
     const [showPitchesInPdf, setShowPitchesInPdf] = useState(true);
-    const [showFreesInPdf, setShowFreesInPdf] = useState(false);
+    const [showFreesInPdf, setShowFreesInPdf] = useState(true);
 
     // Filter Pitch Stats by Half
     // INTEGRATION FIX: Flatten Pitch Stats for Visual Maps
@@ -132,14 +132,13 @@ const DashboardView = () => {
     const shotData = [
         {
             name: 'Scores',
-            // Manual: score + scoreFree + score45 + penalty + point65 + (goals? if any manual button exists)
-            // Pitch: getPitchTotal('scores')
-            value: sumStats('score') + sumStats('scoreFree') + sumStats('score45') + sumStats('penalty') + sumStats('point65') + getPitchTotal('scores'),
+            // INTEGRATION FIX: We now sync Pitch -> Stats, so ONLY use Stats to avoid double counting.
+            value: sumStats('score') + sumStats('scoreFree') + sumStats('score45') + sumStats('penalty') + sumStats('point65'),
             color: '#4caf50'
         },
         {
             name: 'Wides',
-            value: sumStats('wide') + sumStats('wide65') + getPitchTotal('wides'),
+            value: sumStats('wide') + sumStats('wide65'),
             color: '#cf6679'
         },
         { name: 'Short', value: sumStats('short'), color: '#ff9800' },
@@ -179,19 +178,29 @@ const DashboardView = () => {
     const ownPuckoutData = [
         {
             name: 'Won',
-            value: sumStats('ownPuckoutWon') + getPuckoutTotal('own', 'won'),
+            // Sync Fix: Only use stats
+            value: sumStats('ownPuckoutWon'),
             color: '#4caf50'
         },
         {
             name: 'Lost',
             // Total - Won
-            value: Math.max(0, (sumStats('ownPuckout') + getPuckoutTotal('own', 'total')) - (sumStats('ownPuckoutWon') + getPuckoutTotal('own', 'won'))),
+            value: Math.max(0, sumStats('ownPuckout') - sumStats('ownPuckoutWon')),
             color: '#cf6679'
         },
     ].filter(d => d.value > 0);
 
-    // Free Type Breakdown
-    const freeTypeCounts = (pitchStats?.frees || []).reduce((acc, free) => {
+    // Aggregate frees across all quarters
+    const allFrees = [
+        ...(pitchStats?.q1?.frees || []),
+        ...(pitchStats?.q2?.frees || []),
+        ...(pitchStats?.q3?.frees || []),
+        ...(pitchStats?.q4?.frees || []),
+        ...(pitchStats?.ft?.frees || [])
+    ].filter(Boolean);
+
+    // Free Type Breakdown (kept for on-screen live view only)
+    const freeTypeCounts = allFrees.reduce((acc, free) => {
         const type = free.type || 'Other';
         acc[type] = (acc[type] || 0) + 1;
         return acc;
@@ -207,12 +216,13 @@ const DashboardView = () => {
     const oppPuckoutData = [
         {
             name: 'Won',
-            value: sumStats('oppPuckoutWon') + getPuckoutTotal('opp', 'won'),
+            // Sync Fix: Only use stats
+            value: sumStats('oppPuckoutWon'),
             color: '#03dac6'
         },
         {
             name: 'Lost',
-            value: Math.max(0, (sumStats('oppPuckout') + getPuckoutTotal('opp', 'total')) - (sumStats('oppPuckoutWon') + getPuckoutTotal('opp', 'won'))),
+            value: Math.max(0, sumStats('oppPuckout') - sumStats('oppPuckoutWon')),
             color: '#bb86fc'
         },
     ].filter(d => d.value > 0);
@@ -283,7 +293,7 @@ const DashboardView = () => {
         let total = 0;
 
         quarters.forEach(q => {
-            const pitch = getPitchQuarterStats(q);
+            // const pitch = getPitchQuarterStats(q); // Pitch stats are now synced to manual stats
 
             if (type === 'rucks') {
                 const rucks = getStatValue(q, 'defRuck') + getStatValue(q, 'midRuck') + getStatValue(q, 'offRuck');
@@ -302,19 +312,18 @@ const DashboardView = () => {
                 value += score;
                 total += shots;
             } else if (type === 'ownPuckouts') {
-                const tot = getStatValue(q, 'ownPuckout') + pitch.ownPuckouts;
-                const won = getStatValue(q, 'ownPuckoutWon') + pitch.ownWon;
+                const tot = getStatValue(q, 'ownPuckout');
+                const won = getStatValue(q, 'ownPuckoutWon');
                 value += won;
                 total += tot;
             } else if (type === 'oppPuckouts') {
-                const tot = getStatValue(q, 'oppPuckout') + pitch.oppPuckouts;
-                const won = getStatValue(q, 'oppPuckoutWon') + pitch.oppWon;
+                const tot = getStatValue(q, 'oppPuckout');
+                const won = getStatValue(q, 'oppPuckoutWon');
                 value += won;
                 total += tot;
             } else if (type === 'puckouts') {
-                // Legacy: sum both
-                const tot = getStatValue(q, 'oppPuckout') + getStatValue(q, 'ownPuckout') + pitch.ownPuckouts + pitch.oppPuckouts;
-                const won = getStatValue(q, 'oppPuckoutWon') + getStatValue(q, 'ownPuckoutWon') + pitch.ownWon + pitch.oppWon;
+                const tot = getStatValue(q, 'oppPuckout') + getStatValue(q, 'ownPuckout');
+                const won = getStatValue(q, 'oppPuckoutWon') + getStatValue(q, 'ownPuckoutWon');
                 value += won;
                 total += tot;
             } else if (type === 'conversion') {
@@ -706,132 +715,45 @@ const DashboardView = () => {
                         pageBreakBefore: isPdfMode ? 'always' : 'auto'
                     }}>
                         <h3 style={{ fontSize: '1.2rem', marginBottom: '25px', color: isPdfMode ? '#000' : '#bb86fc', textAlign: 'center', textTransform: 'uppercase', letterSpacing: '1px' }}>Free Analysis</h3>
-                        <div style={{ display: 'flex', justifyContent: 'center', gap: '20px', width: '100%', borderBottom: isPdfMode ? '1px solid #ddd' : '1px solid #333', paddingBottom: '20px' }}>
-                            <div style={{ textAlign: 'center', flex: 1 }}>
-                                <div style={{ fontSize: '0.8rem', color: isPdfMode ? '#666' : '#b0b0b0', textTransform: 'uppercase' }}>{matchInfo.homeTeam || 'Home'} Conceded</div>
-                                <div style={{ fontSize: '1.8rem', fontWeight: 'bold', color: isPdfMode ? '#000' : '#fff' }}>{sumStats('freeConcededHome')}</div>
-                            </div>
-                            <div style={{ borderLeft: isPdfMode ? '1px solid #ddd' : '1px solid #333' }}></div>
-                            <div style={{ textAlign: 'center', flex: 1 }}>
-                                <div style={{ fontSize: '0.8rem', color: isPdfMode ? '#666' : '#b0b0b0', textTransform: 'uppercase' }}>{matchInfo.awayTeam || 'Away'} Conceded</div>
-                                <div style={{ fontSize: '1.8rem', fontWeight: 'bold', color: isPdfMode ? '#000' : '#fff' }}>{sumStats('freeConcededAway')}</div>
-                            </div>
+
+                        {/* Total */}
+                        <div style={{ textAlign: 'center', marginBottom: '25px', paddingBottom: '20px', borderBottom: isPdfMode ? '1px solid #ddd' : '1px solid #333' }}>
+                            <div style={{ fontSize: '0.8rem', color: isPdfMode ? '#666' : '#b0b0b0', textTransform: 'uppercase', marginBottom: '4px' }}>{matchInfo.homeTeam || 'Home'} Frees Conceded</div>
+                            <div style={{ fontSize: '2.5rem', fontWeight: 'bold', color: isPdfMode ? '#000' : '#fff' }}>{sumStats('freeConcededHome')}</div>
                         </div>
 
-                        {freeTypeData.length > 0 && (
-                            <div style={{ marginTop: '30px', marginBottom: '10px' }}>
-                                <h4 style={{ color: isPdfMode ? '#333' : '#b0b0b0', textAlign: 'center', fontSize: '0.9rem', marginBottom: '15px' }}>Breakdown by Foul Type</h4>
-                                <div style={{ height: '300px', width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-                                    {isPdfMode ? (
-                                        <PieChart width={500} height={300}>
-                                            <Pie
-                                                data={freeTypeData}
-                                                cx="50%"
-                                                cy="50%"
-                                                innerRadius={60}
-                                                outerRadius={80}
-                                                paddingAngle={5}
-                                                dataKey="value"
-                                                isAnimationActive={false}
-                                                label={({ name, value }) => `${name}: ${value}`}
-                                            >
-                                                {freeTypeData.map((entry, index) => (
-                                                    <Cell key={`cell-${index}`} fill={entry.color} />
-                                                ))}
-                                            </Pie>
-                                            <Legend wrapperStyle={{ color: '#000', fontSize: '12px' }} />
-                                        </PieChart>
-                                    ) : (
-                                        <ResponsiveContainer width="100%" height="100%" minWidth={0}>
-                                            <PieChart>
-                                                <Pie
-                                                    data={freeTypeData}
-                                                    cx="50%"
-                                                    cy="50%"
-                                                    innerRadius={60}
-                                                    outerRadius={80}
-                                                    paddingAngle={5}
-                                                    dataKey="value"
-                                                    isAnimationActive={false}
-                                                    label={({ name, value }) => `${name}: ${value}`}
-                                                >
-                                                    {freeTypeData.map((entry, index) => (
-                                                        <Cell key={`cell-${index}`} fill={entry.color} />
-                                                    ))}
-                                                </Pie>
-                                                <Tooltip contentStyle={{ backgroundColor: '#333', border: 'none', color: '#fff' }} />
-                                                <Legend wrapperStyle={{ fontSize: '12px' }} />
-                                            </PieChart>
-                                        </ResponsiveContainer>
-                                    )}
-                                </div>
-                            </div>
-                        )}
-
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginTop: '30px' }}>
-                            <div style={{ backgroundColor: isPdfMode ? '#fff' : '#252525', padding: '15px', borderRadius: '8px', border: isPdfMode ? '1px solid #eee' : '1px solid #333' }}>
-                                <h4 style={{ color: matchInfo.homeTeamColor || '#bb86fc', fontSize: '0.8rem', marginBottom: '10px', textTransform: 'uppercase' }}>{matchInfo.homeTeam || 'Home'} Fouls by Zone</h4>
-                                {['Defence', 'Middle', 'Offence'].map(loc => {
-                                    const count = (pitchStats?.frees || []).filter(f => f && f.team === 'home' && f.location === loc).length;
-                                    return (
-                                        <div key={loc} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', color: isPdfMode ? '#333' : '#b0b0b0', marginBottom: '4px' }}>
-                                            <span>{loc}:</span>
-                                            <span>{count}</span>
+                        {/* Zone Breakdown */}
+                        <div style={{ maxWidth: '400px', margin: '0 auto' }}>
+                            <h4 style={{ color: isPdfMode ? '#333' : '#b0b0b0', textAlign: 'center', fontSize: '0.85rem', marginBottom: '16px', textTransform: 'uppercase', letterSpacing: '1px' }}>Frees by Zone</h4>
+                            {['Defence', 'Middle', 'Offence'].map(loc => {
+                                const count = allFrees.filter(f => f.team === 'home' && f.location === loc).length;
+                                const total = sumStats('freeConcededHome');
+                                const pct = total > 0 ? Math.round((count / total) * 100) : 0;
+                                return (
+                                    <div key={loc} style={{ marginBottom: '12px' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem', color: isPdfMode ? '#333' : '#e0e0e0', marginBottom: '4px' }}>
+                                            <span style={{ fontWeight: 'bold' }}>{loc}</span>
+                                            <span>{count} <span style={{ color: isPdfMode ? '#666' : '#b0b0b0', fontSize: '0.8rem' }}>({pct}%)</span></span>
                                         </div>
-                                    );
-                                })}
-                            </div>
-                            <div style={{ backgroundColor: isPdfMode ? '#fff' : '#252525', padding: '15px', borderRadius: '8px', border: isPdfMode ? '1px solid #eee' : '1px solid #333' }}>
-                                <h4 style={{ color: matchInfo.awayTeamColor || '#03dac6', fontSize: '0.8rem', marginBottom: '10px', textTransform: 'uppercase' }}>{matchInfo.awayTeam || 'Away'} Fouls by Zone</h4>
-                                {['Defence', 'Middle', 'Offence'].map(loc => {
-                                    const count = (pitchStats?.frees || []).filter(f => f && f.team === 'away' && f.location === loc).length;
-                                    return (
-                                        <div key={loc} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', color: isPdfMode ? '#333' : '#b0b0b0', marginBottom: '4px' }}>
-                                            <span>{loc}:</span>
-                                            <span>{count}</span>
+                                        <div style={{ height: '6px', backgroundColor: isPdfMode ? '#e0e0e0' : '#333', borderRadius: '3px', overflow: 'hidden' }}>
+                                            <div style={{ height: '100%', width: `${pct}%`, backgroundColor: '#cf6679', borderRadius: '3px' }} />
                                         </div>
-                                    );
-                                })}
-                            </div>
+                                    </div>
+                                );
+                            })}
+                            {/* Untagged */}
+                            {(() => {
+                                const tagged = allFrees.filter(f => f.team === 'home' && ['Defence', 'Middle', 'Offence'].includes(f.location)).length;
+                                const untagged = sumStats('freeConcededHome') - tagged;
+                                return untagged > 0 ? (
+                                    <div style={{ marginTop: '12px', fontSize: '0.8rem', color: isPdfMode ? '#888' : '#666', textAlign: 'center' }}>
+                                        {untagged} free{untagged !== 1 ? 's' : ''} without a zone selected
+                                    </div>
+                                ) : null;
+                            })()}
                         </div>
-
-                        {/* KPI Guide */}
-                        <div style={{
-                            marginTop: '30px',
-                            padding: '20px',
-                            backgroundColor: isPdfMode ? '#f9f9f9' : '#252525',
-                            borderRadius: '10px',
-                            border: isPdfMode ? '1px solid #ddd' : '1px solid #333',
-                            fontSize: '0.85rem',
-                            color: isPdfMode ? '#333' : '#e0e0e0',
-                            lineHeight: '1.6',
-                            pageBreakInside: 'avoid',
-                            width: '100%',
-                            maxWidth: '100%',
-                            textAlign: 'center'
-                        }}>
-                            <h4 style={{ color: isPdfMode ? '#000' : '#bb86fc', marginBottom: '10px', borderBottom: isPdfMode ? '1px solid #ccc' : '1px solid #444', paddingBottom: '5px', textTransform: 'uppercase', letterSpacing: '1px', fontSize: '0.9rem' }}>KPI: Free Analysis (Discipline & Defensive Quality)</h4>
-                            <p style={{ margin: '0 0 10px 0' }}><strong>What it measures:</strong> The volume and location of fouls conceded, indicating defensive discipline and the quality of the tackle.</p>
-
-                            <div style={{ marginTop: '15px' }}>
-                                <strong>Why it matters:</strong>
-                                <ul style={{ paddingLeft: '0', listStyle: 'none', margin: '5px 0' }}>
-                                    <li><strong>Discipline Under Pressure:</strong> Conceding frees in the scoring zone hands the opposition "easy" points.</li>
-                                    <li><strong>Quality of Tackle:</strong> High free counts often indicate being a "half-step" behind the play.</li>
-                                </ul>
-                            </div>
-
-                            <div style={{ marginTop: '15px', backgroundColor: isPdfMode ? '#fff' : '#1e1e1e', padding: '12px', borderRadius: '6px', border: isPdfMode ? '1px solid #eee' : '1px solid #333' }}>
-                                <strong>How to read it:</strong>
-                                <ul style={{ paddingLeft: '0', listStyle: 'none', margin: '5px 0' }}>
-                                    <li><strong>Low Foul Count (&lt;10 per game):</strong> High defensive discipline and excellent tackling technique.</li>
-                                    <li><strong>High Foul Count (&gt;15 per game):</strong> Defensive panic or poor positioning.</li>
-                                </ul>
-                            </div>
-                        </div>
-                    </div >
-                )
-                }
+                    </div>
+                )}
 
                 {/* PDF Pitch Toggle */}
                 {!isPdfMode && (

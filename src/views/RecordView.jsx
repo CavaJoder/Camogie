@@ -7,6 +7,7 @@ import PuckoutsView from './PuckoutsView';
 
 const RecordView = () => {
     const { stats, timer, updateStat, addPitchEvent, matchInfo, setQuarter } = useMatch();
+    const [selectedZone, setSelectedZone] = React.useState(null);
 
     // Helper to get current count safely
     const getCount = (id) => {
@@ -201,14 +202,36 @@ const RecordView = () => {
                         disabled={isReadOnly}
                         onIncrement={() => {
                             if (!isReadOnly) {
-                                // Record the free in the CURRENT quarter, even though we display the total
-                                // updateStat handles the log entry, so we skip it in addPitchEvent
                                 updateStat(timer.quarter.toLowerCase(), 'freeConcededHome', 'home', 1);
-                                addPitchEvent(timer.quarter.toLowerCase(), 'frees', { team: 'home', quarter: timer.quarter }, true);
+                                addPitchEvent(timer.quarter.toLowerCase(), 'frees', { team: 'home', quarter: timer.quarter, location: selectedZone }, true);
                             }
                         }}
                         onDecrement={() => !isReadOnly && updateStat(timer.quarter.toLowerCase(), 'freeConcededHome', 'home', -1)}
                     />
+                    {/* Zone Selector */}
+                    <div style={{ display: 'flex', gap: '10px', marginTop: '10px', flexWrap: 'wrap' }}>
+                        {['Defence', 'Middle', 'Offence'].map(zone => (
+                            <label key={zone} style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '6px',
+                                cursor: isReadOnly ? 'not-allowed' : 'pointer',
+                                color: selectedZone === zone ? '#cf6679' : '#b0b0b0',
+                                fontSize: '0.85rem',
+                                fontWeight: selectedZone === zone ? 'bold' : 'normal',
+                                opacity: isReadOnly ? 0.5 : 1
+                            }}>
+                                <input
+                                    type="checkbox"
+                                    checked={selectedZone === zone}
+                                    disabled={isReadOnly}
+                                    onChange={() => setSelectedZone(prev => prev === zone ? null : zone)}
+                                    style={{ accentColor: '#cf6679', transform: 'scale(1.2)', cursor: isReadOnly ? 'not-allowed' : 'pointer' }}
+                                />
+                                {zone}
+                            </label>
+                        ))}
+                    </div>
                 </div>
             </div>
 
