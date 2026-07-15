@@ -1,0 +1,2 @@
+# SPA fallback – only fires if no matching static file exists
+/*    /index.html   200

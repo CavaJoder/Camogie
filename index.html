@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GK Drills v2.0 — Camogie &amp; Hurling Goalkeeping</title>
+  <meta name="description" content="A complete library of goalkeeping drills for Camogie and Hurling coaches. Browse, filter, and add custom drills across 6 training categories." />
+  <meta name="theme-color" content="#1a7a4a" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="GK Drills" />
+
+  <link rel="manifest" href="./manifest.json" />
+  <link rel="icon" href="./icons/icon-192.png" type="image/png" />
+  <link rel="apple-touch-icon" href="./icons/icon-192.png" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="./css/app.css" />
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════════
+     TOP NAVIGATION
+══════════════════════════════════════════════ -->
+<nav class="topnav" role="navigation" aria-label="Main navigation">
+  <a class="nav-logo" href="#" aria-label="GK Drills Home">
+    <div class="nav-logo-icon">🏑</div>
+    <div class="nav-logo-text">
+      <span class="nav-logo-title">GK Drills</span>
+      <span class="nav-logo-sub">Camogie &amp; Hurling · <span class="nav-version">v2.0</span></span>
+    </div>
+  </a>
+  <div class="nav-spacer"></div>
+  <div class="nav-count">
+    <span>Drills:</span>
+    <strong id="nav-drill-count">60</strong>
+  </div>
+  <!-- SCAN IMAGE BUTTON — always visible -->
+  <button
+    class="btn btn-ghost nav-scan-btn"
+    onclick="openScanModal()"
+    id="scan-drill-btn"
+    aria-label="Scan a drill image with AI"
+  >
+    <span class="btn-icon">📷</span>
+    <span class="nav-btn-label">Scan Image</span>
+  </button>
+  <button
+    class="btn btn-primary"
+    onclick="document.getElementById('add-modal').classList.add('open'); document.body.style.overflow='hidden'"
+    id="add-drill-btn"
+    aria-label="Add a new drill"
+  >
+    <span class="btn-icon">＋</span>
+    <span class="nav-btn-label">Add Drill</span>
+  </button>
+</nav>
+
+<!-- ══════════════════════════════════════════════
+     MAIN CONTENT
+══════════════════════════════════════════════ -->
+<main class="page-wrapper" id="main-content">
+
+  <!-- HERO -->
+  <section class="hero-section" aria-labelledby="hero-heading">
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:4px;">
+      <div class="hero-badge" style="margin-bottom:0;">🏑 Coach's Training Hub</div>
+      <div class="hero-version-badge">v2.0</div>
+    </div>
+    <h1 id="hero-heading">Camogie &amp; Hurling<br/>Goalkeeping Drills</h1>
+    <p>A complete, offline-ready drill library built for goalkeeping coaches. 60 expertly designed drills across 6 categories — filterable by sport, age group, and difficulty.</p>
+    <div class="hero-stats">
+      <div class="hero-stat"><div class="hero-stat-num">60</div><div class="hero-stat-label">Total Drills</div></div>
+      <div class="hero-stat"><div class="hero-stat-num">6</div><div class="hero-stat-label">Categories</div></div>
+      <div class="hero-stat"><div class="hero-stat-num">3</div><div class="hero-stat-label">Age Groups</div></div>
+      <div class="hero-stat"><div class="hero-stat-num">∞</div><div class="hero-stat-label">Custom Drills</div></div>
+    </div>
+  </section>
+
+  <!-- VIEW SWITCHER TABS -->
+  <div class="view-tabs" role="tablist">
+    <button class="tab-btn active" id="tab-library" role="tab" aria-selected="true" onclick="switchView('library')">🏑 Drills Library</button>
+    <button class="tab-btn" id="tab-sessions" role="tab" aria-selected="false" onclick="switchView('sessions')">📋 Session Plans</button>
+  </div>
+
+  <!-- FILTER BAR -->
+  <section class="filter-bar" id="drills-filter-bar" aria-label="Drill filters">
+
+    <!-- Search -->
+    <div class="filter-row">
+      <span class="filter-label">Search</span>
+      <div class="search-wrap">
+        <span class="search-icon">🔍</span>
+        <input
+          type="search"
+          id="search-input"
+          placeholder="Search drills by name or category…"
+          autocomplete="off"
+          aria-label="Search drills"
+        />
+      </div>
+      <div class="filter-actions">
+        <span id="result-count">60 drills found</span>
+      </div>
+    </div>
+
+    <!-- Category -->
+    <div class="filter-row">
+      <span class="filter-label">Category</span>
+      <div class="chip-group" id="filter-category" role="group" aria-label="Filter by category">
+        <button class="chip active" data-value="All">All</button>
+        <button class="chip" data-value="Shot Stopping">🧤 Shot Stopping</button>
+        <button class="chip" data-value="Puckout & Distribution">🏑 Puckout</button>
+        <button class="chip" data-value="Footwork & Positioning">👟 Footwork</button>
+        <button class="chip" data-value="Handling & Ball Control">✋ Handling</button>
+        <button class="chip" data-value="1v1 & Breakaway">⚡ 1v1</button>
+        <button class="chip" data-value="Communication & Organisation">📢 Communication</button>
+      </div>
+    </div>
+
+    <!-- Sport / Age / Difficulty -->
+    <div class="filter-row" style="flex-wrap:wrap;gap:20px;">
+
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+        <span class="filter-label">Sport</span>
+        <div class="chip-group" id="filter-sport" role="group" aria-label="Filter by sport">
+          <button class="chip active" data-value="All">All</button>
+          <button class="chip" data-value="Camogie">Camogie</button>
+          <button class="chip" data-value="Hurling">Hurling</button>
+        </div>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+        <span class="filter-label">Age</span>
+        <div class="chip-group" id="filter-age" role="group" aria-label="Filter by age group">
+          <button class="chip active" data-value="All">All</button>
+          <button class="chip" data-value="U14">U14</button>
+          <button class="chip" data-value="U16">U16</button>
+          <button class="chip" data-value="Senior">Senior</button>
+        </div>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+        <span class="filter-label">Difficulty</span>
+        <div class="chip-group" id="filter-difficulty" role="group" aria-label="Filter by difficulty">
+          <button class="chip active" data-value="All">All</button>
+          <button class="chip" data-value="Easier">Easier</button>
+          <button class="chip" data-value="Standard">Standard</button>
+          <button class="chip" data-value="Harder">Harder</button>
+        </div>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+        <span class="filter-label">Rating</span>
+        <div class="chip-group" id="filter-rating" role="group" aria-label="Filter by rating">
+          <button class="chip active" data-value="All">All</button>
+          <button class="chip" data-value="9">⭐ 9+</button>
+          <button class="chip" data-value="7">⭐ 7+</button>
+          <button class="chip" data-value="5">⭐ 5+</button>
+          <button class="chip" data-value="Unrated">Unrated</button>
+        </div>
+      </div>
+
+    </div>
+
+  </section>
+
+  <!-- DRILL GRID -->
+  <section id="drill-grid" aria-label="Drill library" aria-live="polite"></section>
+
+  <!-- SESSIONS SECTION -->
+  <section id="sessions-section" aria-label="Session plans" style="display:none;"></section>
+
+</main>
+
+<!-- ══════════════════════════════════════════════
+     DRILL DETAIL MODAL
+══════════════════════════════════════════════ -->
+<div
+  class="modal-overlay"
+  id="drill-modal"
+  role="dialog"
+  aria-modal="true"
+  aria-label="Drill detail"
+>
+  <div class="modal">
+    <div id="drill-modal-body"></div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════
+     SCAN IMAGE MODAL
+══════════════════════════════════════════════ -->
+<div
+  class="modal-overlay"
+  id="scan-modal"
+  role="dialog"
+  aria-modal="true"
+  aria-labelledby="scan-modal-title"
+>
+  <div class="modal" style="max-width:760px;">
+    <div class="add-modal-body">
+
+      <!-- Header -->
+      <div class="add-modal-header">
+        <span style="font-size:28px;">📷</span>
+        <div>
+          <h2 id="scan-modal-title" style="font-size:18px;">Scan a Drill Image</h2>
+          <p style="font-size:12px;color:var(--muted);margin-top:2px;">Upload a photo of any drill card, whiteboard, or notes — AI will extract the details for you.</p>
+        </div>
+        <div style="flex:1;"></div>
+        <button class="modal-close" style="position:static;background:#eee;color:#333;" onclick="closeModal('scan-modal')" aria-label="Close">✕</button>
+      </div>
+
+      <!-- API Key section -->
+      <div class="scan-api-section">
+        <div class="scan-api-header">
+          <span class="scan-api-icon">🔑</span>
+          <div>
+            <div class="scan-api-title">Gemini API Key</div>
+            <div class="scan-api-sub">Free at <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener" class="scan-link">aistudio.google.com/apikey</a> — stored locally, never sent anywhere except Google.</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+          <input
+            class="form-input"
+            type="password"
+            id="scan-api-key"
+            placeholder="AIzaSy…"
+            autocomplete="off"
+            style="flex:1;min-width:220px;"
+            aria-label="Gemini API key"
+          />
+          <button
+            id="test-key-btn"
+            onclick="testApiKey()"
+            class="btn-cancel"
+            style="white-space:nowrap;padding:10px 16px;font-size:12px;"
+            type="button"
+          >🔑 Test Key</button>
+          <button
+            id="clear-key-btn"
+            onclick="clearApiKey()"
+            class="btn-cancel"
+            style="white-space:nowrap;padding:10px 16px;font-size:12px;background:#fdecea;color:#b91c1c;border-color:#f8b4b4;"
+            type="button"
+          >🗑️ Clear Key</button>
+          <label class="scan-save-label">
+            <input type="checkbox" id="scan-save-key" />
+            Remember key
+          </label>
+        </div>
+      </div>
+
+      <!-- Drop zone -->
+      <div class="scan-drop-zone" id="scan-drop-zone" role="button" tabindex="0" aria-label="Upload drill image">
+        <div class="scan-drop-icon">📸</div>
+        <div class="scan-drop-title">Drop an image here or click to browse</div>
+        <div class="scan-drop-sub">JPG, PNG, WEBP — photos of drill cards, whiteboards, handwritten notes</div>
+        <input type="file" id="scan-file-input" accept="image/*" style="display:none;" aria-hidden="true" />
+      </div>
+
+      <!-- Image preview -->
+      <img id="scan-preview-img" class="scan-preview-img" alt="Drill image preview" style="display:none;" />
+
+      <!-- Status message -->
+      <div id="scan-status" class="scan-status"></div>
+      <!-- Diagnostic debug panel (shown on error) -->
+      <pre id="scan-debug" style="display:none;background:#1a1a1a;color:#f8f8f2;font-size:11px;padding:12px 14px;border-radius:8px;overflow-x:auto;line-height:1.6;white-space:pre-wrap;"></pre>
+
+      <!-- Analyse button -->
+      <div style="display:flex;justify-content:center;">
+        <button id="scan-analyse-btn" class="btn-save" disabled style="min-width:200px;display:flex;align-items:center;gap:8px;justify-content:center;">
+          <span>🔍</span> Analyse Drill
+        </button>
+      </div>
+
+      <!-- Result section -->
+      <div id="scan-result-section" style="display:none;"></div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════
+     ADD DRILL MODAL
+══════════════════════════════════════════════ -->
+<div
+  class="modal-overlay"
+  id="add-modal"
+  role="dialog"
+  aria-modal="true"
+  aria-labelledby="add-modal-title"
+>
+  <div class="modal">
+    <div class="add-modal-body">
+      <div class="add-modal-header">
+        <span style="font-size:28px;">⭐</span>
+        <h2 id="add-modal-title">Add a Custom Drill</h2>
+        <div style="flex:1;"></div>
+        <button class="modal-close" style="position:static;background:#eee;color:#333;" onclick="closeModal('add-modal')" aria-label="Close">✕</button>
+      </div>
+
+      <form id="add-drill-form" novalidate>
+        <div class="form-grid">
+
+          <!-- Title -->
+          <div class="form-group full">
+            <label class="form-label" for="f-title">Drill Title <span class="req">*</span></label>
+            <input class="form-input" type="text" id="f-title" name="title" placeholder="e.g. The Diamond Save" required />
+          </div>
+
+          <!-- Subtitle -->
+          <div class="form-group full">
+            <label class="form-label" for="f-subtitle">Subtitle / Brief Description</label>
+            <input class="form-input" type="text" id="f-subtitle" name="subtitle" placeholder="e.g. Explosive lateral movement combined with a reaction save" />
+          </div>
+
+          <!-- Category -->
+          <div class="form-group">
+            <label class="form-label" for="f-category">Category <span class="req">*</span></label>
+            <select class="form-select" id="f-category" name="category" required>
+              <option value="Shot Stopping">🧤 Shot Stopping</option>
+              <option value="Puckout & Distribution">🏑 Puckout &amp; Distribution</option>
+              <option value="Footwork & Positioning">👟 Footwork &amp; Positioning</option>
+              <option value="Handling & Ball Control">✋ Handling &amp; Ball Control</option>
+              <option value="1v1 & Breakaway">⚡ 1v1 &amp; Breakaway</option>
+              <option value="Communication & Organisation">📢 Communication &amp; Organisation</option>
+              <option value="Custom">⭐ Custom</option>
+            </select>
+          </div>
+
+          <!-- Sport -->
+          <div class="form-group">
+            <label class="form-label" for="f-sport">Sport</label>
+            <select class="form-select" id="f-sport" name="sport">
+              <option value="Both">Both (Camogie &amp; Hurling)</option>
+              <option value="Camogie">Camogie Only</option>
+              <option value="Hurling">Hurling Only</option>
+            </select>
+          </div>
+
+          <!-- Age Group -->
+          <div class="form-group">
+            <label class="form-label" for="f-age">Age Group</label>
+            <select class="form-select" id="f-age" name="ageGroup">
+              <option value="Senior">Senior</option>
+              <option value="U16">Under 16</option>
+              <option value="U14">Under 14</option>
+            </select>
+          </div>
+
+          <!-- Difficulty -->
+          <div class="form-group">
+            <label class="form-label" for="f-difficulty">Difficulty</label>
+            <select class="form-select" id="f-difficulty" name="difficulty">
+              <option value="Standard">Standard</option>
+              <option value="Easier">Easier</option>
+              <option value="Harder">Harder</option>
+            </select>
+          </div>
+
+          <!-- Duration -->
+          <div class="form-group">
+            <label class="form-label" for="f-duration">Duration</label>
+            <input class="form-input" type="text" id="f-duration" name="duration" placeholder="e.g. 20 mins" />
+          </div>
+
+          <!-- Players -->
+          <div class="form-group">
+            <label class="form-label" for="f-players">Players</label>
+            <input class="form-input" type="text" id="f-players" name="players" placeholder="e.g. 4–8" />
+          </div>
+
+          <!-- Space -->
+          <div class="form-group">
+            <label class="form-label" for="f-space">Space Required</label>
+            <input class="form-input" type="text" id="f-space" name="space" placeholder="e.g. Goal Area" />
+          </div>
+
+          <!-- Objectives -->
+          <div class="form-group full">
+            <label class="form-label" for="f-objective">Objectives <span style="font-size:11px;color:#888;">(one per line)</span></label>
+            <textarea class="form-textarea" id="f-objective" name="objective" placeholder="Master the diving technique&#10;Read the shooter's body shape&#10;Reset quickly after each save"></textarea>
+          </div>
+
+          <!-- Equipment -->
+          <div class="form-group full">
+            <label class="form-label" for="f-equipment">Equipment <span style="font-size:11px;color:#888;">(one per line)</span></label>
+            <textarea class="form-textarea" id="f-equipment" name="equipment" placeholder="Full-size goal&#10;10 sliotars&#10;2–3 servers&#10;Bibs"></textarea>
+          </div>
+
+          <!-- Phases -->
+          <div class="form-group full">
+            <label class="form-label" for="f-phases">Drill Phases <span class="req">*</span> <span style="font-size:11px;color:#888;">(one per line — use bold for phase title)</span></label>
+            <textarea class="form-textarea" id="f-phases" name="phases" style="min-height:120px;" placeholder="<strong>Warm-up (5 min):</strong> Description of the warm-up phase.&#10;<strong>Main Drill (10 min):</strong> Description of the main drill.&#10;<strong>Conditioned Game (5 min):</strong> Description of the game." required></textarea>
+          </div>
+
+          <!-- Coaching Cues -->
+          <div class="form-group full">
+            <label class="form-label" for="f-cues">Coaching Cues <span style="font-size:11px;color:#888;">(one per line, include quotes)</span></label>
+            <textarea class="form-textarea" id="f-cues" name="cues" placeholder='"Stay on your feet!"&#10;"Watch the ball carrier!"&#10;"Reset — next ball is coming!"'></textarea>
+          </div>
+
+          <!-- Progressions -->
+          <div class="form-group">
+            <label class="form-label" for="f-prog-easier">Easier Progression</label>
+            <input class="form-input" type="text" id="f-prog-easier" name="prog_easier" placeholder="e.g. Reduce the pace or distance" />
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="f-prog-harder">Harder Progression</label>
+            <input class="form-input" type="text" id="f-prog-harder" name="prog_harder" placeholder="e.g. Add a second attacker" />
+          </div>
+
+          <!-- Safety -->
+          <div class="form-group full">
+            <label class="form-label" for="f-safety">Safety Notes</label>
+            <textarea class="form-textarea" id="f-safety" name="safety" placeholder="All players must wear helmets. Ensure the ground is clear before diving work…"></textarea>
+          </div>
+
+          <!-- Success Criteria -->
+          <div class="form-group full">
+            <label class="form-label" for="f-success">Success Criteria <span style="font-size:11px;color:#888;">(one per line)</span></label>
+            <textarea class="form-textarea" id="f-success" name="success" placeholder="GK saves 7/10 shots in the main drill.&#10;Reset to set position in under 2 seconds.&#10;Correct decision made 8/10 times."></textarea>
+          </div>
+
+        </div><!-- /form-grid -->
+
+        <div class="form-footer">
+          <button type="button" class="btn-cancel" onclick="closeModal('add-modal')">Cancel</button>
+          <button type="submit" class="btn-save">💾 Save Drill</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════
+     INSTALL BANNER
+     ══════════════════════════════════════════════ -->
+<div class="install-banner" id="install-banner" role="status" aria-live="polite">
+  <div class="nav-logo-icon" style="flex-shrink:0;">🏑</div>
+  <div class="install-banner-text">
+    <strong>Install GK Drills</strong>
+    Access all 60 drills offline on your device.
+  </div>
+  <button class="btn btn-ghost" id="install-btn" aria-label="Install app">Install</button>
+  <button class="install-close" id="install-close" aria-label="Dismiss">✕</button>
+</div>
+
+<!-- ══════════════════════════════════════════════
+     SESSION PLAN MODAL
+     ══════════════════════════════════════════════ -->
+<div
+  class="modal-overlay"
+  id="session-modal"
+  role="dialog"
+  aria-modal="true"
+  aria-labelledby="session-modal-title"
+>
+  <div class="modal" style="max-width:500px;">
+    <div class="add-modal-body">
+      <div class="add-modal-header">
+        <span style="font-size:28px;">📅</span>
+        <h2 id="session-modal-title">Create Session Plan</h2>
+        <div style="flex:1;"></div>
+        <button class="modal-close" style="position:static;background:#eee;color:#333;" onclick="closeModal('session-modal')" aria-label="Close">✕</button>
+      </div>
+      <form id="session-form" onsubmit="event.preventDefault(); saveSessionPlan();">
+        <div class="form-grid" style="grid-template-columns: 1fr;">
+          <div class="form-group">
+            <label class="form-label" for="s-name">Session Name <span class="req">*</span></label>
+            <input class="form-input" type="text" id="s-name" placeholder="e.g. Tuesday Night Shot Stopping" required />
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="s-date">Date <span class="req">*</span></label>
+            <input class="form-input" type="date" id="s-date" required />
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="s-notes">Coaching Notes / Focus</label>
+            <textarea class="form-textarea" id="s-notes" style="min-height: 100px;" placeholder="Focus areas, age group context, overall goals..."></textarea>
+          </div>
+        </div>
+        <div class="form-footer" style="margin-top:16px;">
+          <button type="button" class="btn-cancel" onclick="closeModal('session-modal')">Cancel</button>
+          <button type="submit" class="btn-save">💾 Save Plan</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast" role="alert" aria-live="assertive"></div>
+
+<!-- Scripts -->
+<script src="./js/drills.js"></script>
+<script src="./js/scan.js"></script>
+<script src="./js/app.js"></script>
+</body>
+</html>
